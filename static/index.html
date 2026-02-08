@@ -7,6 +7,53 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="/static/css/styles.css">
+    <style>
+        /* Добавляем стили для кнопки Telegram Help */
+        .telegram-help-btn {
+            margin-left: 10px;
+            background: #0088cc;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: background 0.3s;
+            z-index: 100;
+            position: relative;
+        }
+
+        .telegram-help-btn:hover {
+            background: #0077b5;
+        }
+
+        /* Стили для alerting config */
+        .alerting-config {
+            display: none;
+            margin-top: 15px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+
+        /* Стили для результата */
+        .result {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+        }
+
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+    </style>
 </head>
 
 <body>
@@ -181,7 +228,29 @@
                         </button>
                     </div>
 
-                    <!-- Alerting Configuration -->
+                    <!-- Notification Channels (вынесены из скрываемого блока) -->
+                    <div class="form-group">
+                        <label for="notificationChannels">
+                            <i class="fas fa-broadcast-tower"></i> Notification Channels
+                        </label>
+                        <div style="display: flex; align-items: center;">
+                            <input type="text" id="notificationChannels"
+                                placeholder="slack#slo-alerts, email:sre@example.com, pagerduty, telegram:chat_id"
+                                style="flex: 1;">
+                            <button type="button" onclick="showTelegramHelp()"
+                                class="btn btn-info btn-sm telegram-help-btn">
+                                <i class="fab fa-telegram"></i> Help
+                            </button>
+                        </div>
+                        <small>
+                            Comma-separated list. Supported: slack, email, pagerduty, telegram, webhook
+                            <br>
+                            <i class="fab fa-telegram"></i> For Telegram: add <code>telegram:chat_id</code> (chat ID
+                            from @BotFather)
+                        </small>
+                    </div>
+
+                    <!-- Включение алертинга -->
                     <div class="form-group">
                         <label>
                             <input type="checkbox" id="enableAlerting" onchange="toggleAlertingConfig()">
@@ -192,29 +261,9 @@
                         </small>
                     </div>
 
+                    <!-- Alerting Configuration (скрываемый блок) -->
                     <div id="alertingConfig" class="alerting-config">
                         <h4><i class="fas fa-cog"></i> Alert Configuration</h4>
-
-                        <div class="form-group">
-                            <label for="notificationChannels">
-                                <i class="fas fa-broadcast-tower"></i> Notification Channels
-                            </label>
-                            <div style="display: flex; align-items: center;">
-                                <input type="text" id="notificationChannels"
-                                    placeholder="slack#slo-alerts, email:sre@example.com, pagerduty, telegram:chat_id"
-                                    style="flex: 1;">
-                                <button type="button" onclick="showTelegramHelp()"
-                                    class="btn btn-info btn-sm telegram-help-btn">
-                                    <i class="fab fa-telegram"></i> Help
-                                </button>
-                            </div>
-                            <small>
-                                Comma-separated list. Supported: slack, email, pagerduty, telegram, webhook
-                                <br>
-                                <i class="fab fa-telegram"></i> For Telegram: add <code>telegram:chat_id</code> (chat ID
-                                from @BotFather)
-                            </small>
-                        </div>
 
                         <div class="form-group">
                             <label><i class="fas fa-fire"></i> Burn Rate Thresholds</label>
@@ -380,8 +429,7 @@
     <script>
         // Telegram help function
         function showTelegramHelp() {
-            const instructions = `
-📱 <strong>Настройка Telegram бота:</strong>
+            const instructions = `📱 <strong>Настройка Telegram бота:</strong>
 1. Создайте бота через @BotFather в Telegram
 2. Получите токен бота
 3. Добавьте бота в группу/канал или получите ваш chat ID
@@ -398,18 +446,69 @@
 📝 <strong>Примеры:</strong>
 - Личный чат: telegram:123456789
 - Группа: telegram:-1001234567890
-- Канал: telegram:-1009876543210
-            `;
+- Канал: telegram:-1009876543210`;
 
-            document.getElementById('yamlOutput').textContent = instructions;
+            // Показываем инструкции
+            document.getElementById('yamlOutput').innerHTML = instructions;
             document.getElementById('result').style.display = 'block';
             document.getElementById('message').innerHTML = '<div class="success"><i class="fab fa-telegram"></i> Telegram Setup Instructions</div>';
             document.getElementById('filesList').innerHTML = '';
             document.getElementById('loadingIndicator').style.display = 'none';
+
+            // Прокручиваем к результатам
+            document.getElementById('result').scrollIntoView({ behavior: 'smooth' });
+
+            console.log('Telegram help function called');
         }
+
+        // Function to toggle alerting config visibility
+        function toggleAlertingConfig() {
+            const alertingConfig = document.getElementById('alertingConfig');
+            const enableAlerting = document.getElementById('enableAlerting');
+
+            if (enableAlerting.checked) {
+                alertingConfig.style.display = 'block';
+            } else {
+                alertingConfig.style.display = 'none';
+            }
+        }
+
+        // Инициализация при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function () {
+            console.log('Page loaded, Telegram help button is ready');
+
+            // Проверяем, что кнопка доступна
+            const telegramBtn = document.querySelector('.telegram-help-btn');
+            if (telegramBtn) {
+                console.log('Telegram help button found');
+                telegramBtn.addEventListener('click', showTelegramHelp);
+            } else {
+                console.error('Telegram help button not found!');
+            }
+
+            // Инициализируем состояние алертинга
+            toggleAlertingConfig();
+        });
     </script>
 
     <script src="/static/js/app.js"></script>
+
+<!-- Yandex.Metrika counter -->
+<script type="text/javascript">
+    (function (m, e, t, r, i, k, a) {
+        m[i] = m[i] || function () { (m[i].a = m[i].a || []).push(arguments) };
+        m[i].l = 1 * new Date();
+        for (var j = 0; j < document.scripts.length; j++) { if (document.scripts[j].src === r) { return; } }
+        k = e.createElement(t), a = e.getElementsByTagName(t)[0], k.async = 1, k.src = r, a.parentNode.insertBefore(k, a)
+    })(window, document, 'script', 'https://mc.yandex.ru/metrika/tag.js?id=106533454', 'ym');
+
+    ym(106533454, 'init', { ssr: true, clickmap: true, referrer: document.referrer, url: location.href, accurateTrackBounce: true, trackLinks: true });
+</script>
+<noscript>
+    <div><img src="https://mc.yandex.ru/watch/106533454" style="position:absolute; left:-9999px;" alt="" /></div>
+</noscript>
+<!-- /Yandex.Metrika counter -->
+
 </body>
 
 </html>

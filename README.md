@@ -146,7 +146,10 @@ SLOzy includes ready-made templates for:
 - Threshold: 100ms
 - Alerting: Critical (20x/30m)
 
-### 4. You can add your own templates
+### 4. and more
+See `/templates` directory
+
+### 5. You can add your own templates
 
 ## 🔧 API Endpoints
 
@@ -276,14 +279,21 @@ SLOzy supports sending notifications to Telegram. To set up:
 
 ## 📈 Roadmap
 
-- [ ] Import existing SLOs
-- [ ] Export to other formats (Pulumi, Terraform)
+- [ ] Import existing SLOs (e.g., YAML from Terraform or JSON from API)
+- [ ] Simplify terminology in forms
 - [ ] Git integration (auto-commit configurations)
+- [ ] Clearer connection between templates and parameters ("highlighting" fields prefilled from the template)
 - [x] Telegram notification sending
 - [ ] SLO review scheduler
 - [ ] SLO change history
 - [ ] Multi-tenancy support
 - [ ] API keys for automation
+- [ ] Preview generated YAML files instead of immediate download
+- [ ] Tooltips for complex fields, "micro-hints", "examples"
+- [ ] Ability to share pre-filled SLO configuration
+- [ ] Visual separation: cards, indentation, icons for each block
+- [ ] Save drafts to localStorage
+- [ ] Drag-and-drop for prioritizing Existing SLOs list
 
 ## 🤝 Contributing
 
@@ -292,11 +302,6 @@ SLOzy supports sending notifications to Telegram. To set up:
 3. Commit your changes (`git commit -m 'Add useful feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
-
-### Code Requirements
-- Follow the existing coding style
-- Add tests for new functionality
-- Update documentation when necessary
 
 ## 📝 Examples
 
@@ -313,12 +318,6 @@ Found a bug? Please create an issue with detailed description:
 ## 📄 License
 
 This project is distributed under the MIT license. See the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- The OpenSLO team for the excellent specification
-- The Prometheus community for monitoring tools
-- All contributors and users
 
 ## 📚 Useful Links
 

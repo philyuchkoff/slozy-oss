@@ -220,6 +220,10 @@ func generateOpenSLO(slo ServiceSLO) ([]byte, error) {
 				},
 				"notification": map[string]interface{}{
 					"channels": slo.Alerting.NotificationChannels,
+					"telegram": map[string]interface{}{
+						"parse_mode":            "Markdown",
+						"disable_notifications": false,
+					},
 				},
 				"labels": map[string]string{
 					"severity":   br.Severity,
@@ -299,19 +303,27 @@ func generatePrometheusAlertRules(slo ServiceSLO) ([]byte, error) {
 				strings.Replace(slo.SLOName, "-", "_", -1))
 		}
 
+		// Создаем метки с информацией о каналах уведомлений
+		labels := map[string]string{
+			"severity":            br.Severity,
+			"service":             slo.ServiceName,
+			"slo":                 slo.SLOName,
+			"slo_indicator":       slo.IndicatorType,
+			"slo_target":          fmt.Sprintf("%.1f", slo.Target),
+			"team":                slo.Team,
+			"burn_rate_threshold": fmt.Sprintf("%.1fx", br.Rate),
+		}
+
+		// Добавляем информацию о каналах уведомлений если они есть
+		if len(slo.Alerting.NotificationChannels) > 0 {
+			labels["notification_channels"] = strings.Join(slo.Alerting.NotificationChannels, ",")
+		}
+
 		alertRule := map[string]interface{}{
-			"alert": alertName,
-			"expr":  expr,
-			"for":   br.Period,
-			"labels": map[string]string{
-				"severity":            br.Severity,
-				"service":             slo.ServiceName,
-				"slo":                 slo.SLOName,
-				"slo_indicator":       slo.IndicatorType,
-				"slo_target":          fmt.Sprintf("%.1f", slo.Target),
-				"team":                slo.Team,
-				"burn_rate_threshold": fmt.Sprintf("%.1fx", br.Rate),
-			},
+			"alert":  alertName,
+			"expr":   expr,
+			"for":    br.Period,
+			"labels": labels,
 			"annotations": map[string]string{
 				"summary":     fmt.Sprintf("High error budget burn rate for %s/%s", slo.ServiceName, slo.SLOName),
 				"description": fmt.Sprintf("{{ $labels.service }} {{ $labels.slo }} is burning error budget {{ $labels.burn_rate_threshold }} faster than allowed.\nCurrent burn rate: {{ $value }}x\nSLO Target: {{ $labels.slo_target }}%%\nFor: %s", br.Period),
@@ -357,62 +369,147 @@ func generateAlertManagerConfig(slo ServiceSLO) ([]byte, error) {
 	telegramBotToken := os.Getenv("TELEGRAM_BOT_TOKEN")
 	telegramChatID := os.Getenv("TELEGRAM_CHAT_ID")
 
+	// Базовые receivers
 	receivers := []map[string]interface{}{
 		{
 			"name": "slo-notifications",
-			"slack_configs": []map[string]interface{}{
-				{
-					"api_url": "https://hooks.slack.com/services/...",
-					"channel": "#slo-alerts",
-					"title":   "{{ .GroupLabels.service }} SLO Alert",
-					"text":    "{{ range .Alerts }}{{ .Annotations.description }}\n{{ end }}",
-				},
-			},
-			"email_configs": []map[string]interface{}{
-				{
-					"to":      "sre-team@example.com",
-					"subject": "SLO Alert: {{ .GroupLabels.service }} {{ .GroupLabels.slo }}",
-				},
-			},
 		},
 		{
 			"name": "critical-alerts",
-			"pagerduty_configs": []map[string]interface{}{
-				{
-					"service_key": "your-pagerduty-key",
-					"description": "{{ .GroupLabels.alertname }}",
-					"severity":    "critical",
-				},
-			},
 		},
 	}
 
-	// Добавляем Telegram конфигурацию, если указаны токен и chat ID
-	if telegramBotToken != "" && telegramChatID != "" {
-		telegramConfig := map[string]interface{}{
-			"name": "telegram-alerts",
-			"telegram_configs": []map[string]interface{}{
-				{
-					"api_url":               fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", telegramBotToken),
-					"chat_id":               telegramChatID,
-					"message":               "🚨 *{{ .GroupLabels.severity | toUpper }} SLO Alert*\n\n*Service:* {{ .GroupLabels.service }}\n*SLO:* {{ .GroupLabels.slo }}\n*Severity:* {{ .GroupLabels.severity }}\n\n{{ range .Alerts }}{{ .Annotations.description }}\n{{ end }}\n\n[View Dashboard]({{ (index .Alerts 0).Annotations.dashboard }})",
-					"parse_mode":            "Markdown",
-					"disable_notifications": false,
-				},
-			},
-		}
-		receivers = append(receivers, telegramConfig)
+	// Создаем конфиги для разных типов уведомлений
+	slackConfigs := []map[string]interface{}{}
+	emailConfigs := []map[string]interface{}{}
+	pagerdutyConfigs := []map[string]interface{}{}
+	telegramConfigs := []map[string]interface{}{}
+	webhookConfigs := []map[string]interface{}{}
 
-		// Добавляем Telegram в маршруты для warning алертов
-		receivers[0]["telegram_configs"] = []map[string]interface{}{
-			{
-				"api_url":               fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", telegramBotToken),
-				"chat_id":               telegramChatID,
-				"message":               "⚠️ *{{ .GroupLabels.severity | toUpper }} SLO Alert*\n\n*Service:* {{ .GroupLabels.service }}\n*SLO:* {{ .GroupLabels.slo }}\n*Severity:* {{ .GroupLabels.severity }}\n\n{{ range .Alerts }}{{ .Annotations.description }}\n{{ end }}\n\n[View Dashboard]({{ (index .Alerts 0).Annotations.dashboard }})",
-				"parse_mode":            "Markdown",
-				"disable_notifications": false,
-			},
+	// Парсим notification channels из SLO
+	for _, channel := range slo.Alerting.NotificationChannels {
+		channel = strings.TrimSpace(channel)
+
+		if strings.HasPrefix(channel, "slack") {
+			// slack#channel-name или slack:webhook-url
+			var slackConfig map[string]interface{}
+			if strings.Contains(channel, "#") {
+				parts := strings.Split(channel, "#")
+				channelName := parts[1]
+				slackConfig = map[string]interface{}{
+					"api_url":  "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX",
+					"channel":  "#" + channelName,
+					"title":    "{{ .GroupLabels.service }} SLO Alert",
+					"text":     "{{ range .Alerts }}{{ .Annotations.description }}\n{{ end }}",
+					"icon_url": "https://raw.githubusercontent.com/philyuchkoff/slozy/main/static/favicon.ico",
+				}
+			} else {
+				slackConfig = map[string]interface{}{
+					"api_url":  channel,
+					"channel":  "#slo-alerts",
+					"title":    "{{ .GroupLabels.service }} SLO Alert",
+					"text":     "{{ range .Alerts }}{{ .Annotations.description }}\n{{ end }}",
+					"icon_url": "https://raw.githubusercontent.com/philyuchkoff/slozy/main/static/favicon.ico",
+				}
+			}
+			slackConfigs = append(slackConfigs, slackConfig)
+
+		} else if strings.HasPrefix(channel, "email") {
+			// email:address@example.com
+			parts := strings.Split(channel, ":")
+			emailTo := "sre-team@example.com"
+			if len(parts) > 1 {
+				emailTo = parts[1]
+			}
+			emailConfigs = append(emailConfigs, map[string]interface{}{
+				"to":        emailTo,
+				"from":      "slo-alerts@example.com",
+				"smarthost": "localhost:25",
+				"subject":   "SLO Alert: {{ .GroupLabels.service }} {{ .GroupLabels.slo }}",
+				"html":      "{{ range .Alerts }}<p><strong>{{ .Annotations.summary }}</strong><br>{{ .Annotations.description }}</p>{{ end }}",
+			})
+
+		} else if strings.HasPrefix(channel, "pagerduty") {
+			// pagerduty или pagerduty:service-key
+			parts := strings.Split(channel, ":")
+			serviceKey := "your-pagerduty-key"
+			if len(parts) > 1 {
+				serviceKey = parts[1]
+			}
+			pagerdutyConfigs = append(pagerdutyConfigs, map[string]interface{}{
+				"service_key": serviceKey,
+				"description": "{{ .GroupLabels.alertname }}",
+				"severity":    "{{ .GroupLabels.severity }}",
+			})
+
+		} else if strings.HasPrefix(channel, "telegram") {
+			// telegram:chat-id
+			if telegramBotToken != "" {
+				parts := strings.Split(channel, ":")
+				chatID := telegramChatID
+				if len(parts) > 1 && parts[1] != "" {
+					chatID = parts[1]
+				}
+
+				if chatID != "" {
+					telegramConfig := map[string]interface{}{
+						"api_url":               fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", telegramBotToken),
+						"chat_id":               chatID,
+						"message":               "🚨 *{{ .GroupLabels.severity | toUpper }} SLO Alert*\n\n*Service:* {{ .GroupLabels.service }}\n*SLO:* {{ .GroupLabels.slo }}\n*Severity:* {{ .GroupLabels.severity }}\n*Alert:* {{ .GroupLabels.alertname }}\n\n{{ range .Alerts }}{{ .Annotations.description }}\n{{ end }}\n\n{{ if (index .Alerts 0).Annotations.dashboard }}[View Dashboard]({{ (index .Alerts 0).Annotations.dashboard }}){{ end }}",
+						"parse_mode":            "Markdown",
+						"disable_notifications": false,
+						"send_resolved":         true,
+					}
+					telegramConfigs = append(telegramConfigs, telegramConfig)
+				}
+			}
+
+		} else if strings.HasPrefix(channel, "webhook") {
+			// webhook:url
+			parts := strings.Split(channel, ":")
+			url := "http://localhost:9093/webhook"
+			if len(parts) > 1 {
+				url = parts[1]
+			}
+			webhookConfigs = append(webhookConfigs, map[string]interface{}{
+				"url":           url,
+				"send_resolved": true,
+			})
+
 		}
+	}
+
+	// Добавляем конфиги в receivers
+	if len(slackConfigs) > 0 {
+		receivers[0]["slack_configs"] = slackConfigs
+	}
+	if len(emailConfigs) > 0 {
+		receivers[0]["email_configs"] = emailConfigs
+	}
+	if len(pagerdutyConfigs) > 0 {
+		receivers[1]["pagerduty_configs"] = pagerdutyConfigs
+	}
+	if len(telegramConfigs) > 0 {
+		receivers[0]["telegram_configs"] = telegramConfigs
+		// Также добавляем Telegram в critical-alerts
+		receivers[1]["telegram_configs"] = telegramConfigs
+	}
+	if len(webhookConfigs) > 0 {
+		receivers[0]["webhook_configs"] = webhookConfigs
+	}
+
+	// Если Telegram токен есть, но не указан в channels, добавляем по умолчанию
+	if telegramBotToken != "" && telegramChatID != "" && len(telegramConfigs) == 0 {
+		defaultTelegramConfig := map[string]interface{}{
+			"api_url":               fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", telegramBotToken),
+			"chat_id":               telegramChatID,
+			"message":               "🚨 *{{ .GroupLabels.severity | toUpper }} SLO Alert*\n\n*Service:* {{ .GroupLabels.service }}\n*SLO:* {{ .GroupLabels.slo }}\n*Severity:* {{ .GroupLabels.severity }}\n\n{{ range .Alerts }}{{ .Annotations.description }}\n{{ end }}",
+			"parse_mode":            "Markdown",
+			"disable_notifications": false,
+			"send_resolved":         true,
+		}
+		receivers[0]["telegram_configs"] = []map[string]interface{}{defaultTelegramConfig}
+		receivers[1]["telegram_configs"] = []map[string]interface{}{defaultTelegramConfig}
 	}
 
 	config := map[string]interface{}{
@@ -421,7 +518,7 @@ func generateAlertManagerConfig(slo ServiceSLO) ([]byte, error) {
 			"smtp_from":      "slo-alerts@example.com",
 		},
 		"route": map[string]interface{}{
-			"group_by":        []string{"alertname", "service", "severity"},
+			"group_by":        []string{"alertname", "service", "slo", "severity"},
 			"group_wait":      "30s",
 			"group_interval":  "5m",
 			"repeat_interval": "12h",
@@ -438,7 +535,7 @@ func generateAlertManagerConfig(slo ServiceSLO) ([]byte, error) {
 						"service": slo.ServiceName,
 						"slo":     slo.SLOName,
 					},
-					"receiver": "slo-alerts",
+					"receiver": "slo-notifications",
 				},
 			},
 		},
@@ -695,6 +792,29 @@ func generateReadme(slo ServiceSLO, mainFilename string, additionalFiles map[str
 			readme.WriteString(fmt.Sprintf("  - Severity: %s\n", br.Severity))
 			readme.WriteString(fmt.Sprintf("  - Action: %s\n", action))
 		}
+
+		if len(slo.Alerting.NotificationChannels) > 0 {
+			readme.WriteString("\n### Notification Channels\n")
+			for _, channel := range slo.Alerting.NotificationChannels {
+				readme.WriteString(fmt.Sprintf("- %s\n", channel))
+			}
+
+			// Добавляем инструкции для Telegram
+			for _, channel := range slo.Alerting.NotificationChannels {
+				if strings.HasPrefix(channel, "telegram") {
+					readme.WriteString("\n### Telegram Setup Instructions\n")
+					readme.WriteString("To configure Telegram notifications:\n")
+					readme.WriteString("1. Set environment variables on your Alertmanager server:\n")
+					readme.WriteString("   ```bash\n")
+					readme.WriteString("   export TELEGRAM_BOT_TOKEN='your_bot_token_from_BotFather'\n")
+					readme.WriteString("   export TELEGRAM_CHAT_ID='your_chat_id'\n")
+					readme.WriteString("   ```\n")
+					readme.WriteString("2. Restart Alertmanager with these environment variables\n")
+					readme.WriteString("3. Ensure Alertmanager has internet access to api.telegram.org\n")
+					break
+				}
+			}
+		}
 	}
 
 	readme.WriteString(fmt.Sprintf("\n## Error Budget\n\n"))
@@ -703,6 +823,8 @@ func generateReadme(slo ServiceSLO, mainFilename string, additionalFiles map[str
 	readme.WriteString("\n## Useful Links\n")
 	readme.WriteString("- [OpenSLO Specification](https://openslo.com)\n")
 	readme.WriteString("- [SLOzy GitHub](https://github.com/philyuchkoff/slozy)\n")
+	readme.WriteString("- [Alertmanager Documentation](https://prometheus.io/docs/alerting/latest/configuration/)\n")
+	readme.WriteString("- [Telegram Bot API](https://core.telegram.org/bots/api)\n")
 
 	return readme.String()
 }
@@ -908,8 +1030,9 @@ func createSLOHandler(w http.ResponseWriter, r *http.Request) {
 
 		// 5. README
 		additionalFiles := map[string]string{
-			"prometheusAlerts": baseFilename + "-prometheus-alerts.yaml",
-			"grafanaDashboard": baseFilename + "-grafana-dashboard.json",
+			"prometheusAlerts":   baseFilename + "-prometheus-alerts.yaml",
+			"alertManagerConfig": baseFilename + "-alertmanager-config.yaml",
+			"grafanaDashboard":   baseFilename + "-grafana-dashboard.json",
 		}
 		readmeContent := generateReadme(slo, mainFilename, additionalFiles)
 		readmeFilename := baseFilename + "-README.md"
@@ -1054,7 +1177,7 @@ func getDefaultTemplates() []map[string]interface{} {
 				"metricQuery":     "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{job=\"$SERVICE\"}[5m]))",
 				"alerting": map[string]interface{}{
 					"enabled":              true,
-					"notificationChannels": []string{"slack#slo-alerts", "email:sre@example.com"},
+					"notificationChannels": []string{"slack#slo-alerts", "email:sre@example.com", "telegram:your_chat_id"},
 					"burnRateThresholds": []map[string]interface{}{
 						{
 							"rate":      10.0,
@@ -1086,7 +1209,7 @@ func getDefaultTemplates() []map[string]interface{} {
 				"metricQuery":     "sum(rate(http_requests_total{job=\"$SERVICE\", status=~\"2..\"}[5m])) / sum(rate(http_requests_total{job=\"$SERVICE\"}[5m]))",
 				"alerting": map[string]interface{}{
 					"enabled":              true,
-					"notificationChannels": []string{"slack#slo-alerts"},
+					"notificationChannels": []string{"slack#slo-alerts", "telegram:your_chat_id"},
 					"burnRateThresholds": []map[string]interface{}{
 						{
 							"rate":     5.0,
@@ -1111,7 +1234,7 @@ func getDefaultTemplates() []map[string]interface{} {
 				"metricQuery":     "histogram_quantile(0.99, rate(pg_query_duration_seconds_bucket{database=\"$DB\"}[5m]))",
 				"alerting": map[string]interface{}{
 					"enabled":              true,
-					"notificationChannels": []string{"pagerduty"},
+					"notificationChannels": []string{"pagerduty", "telegram:your_chat_id"},
 					"burnRateThresholds": []map[string]interface{}{
 						{
 							"rate":     20.0,
@@ -1217,7 +1340,7 @@ examples:
 
 alerting:
   enabled: true
-  notificationChannels: ["slack#slo-alerts", "email:sre@example.com"]
+  notificationChannels: ["slack#slo-alerts", "email:sre@example.com", "telegram:your_chat_id"]
   burnRateThresholds:
     - rate: 10.0
       period: 1h
@@ -1263,7 +1386,7 @@ examples:
 
 alerting:
   enabled: true
-  notificationChannels: ["pagerduty", "slack#database-alerts"]
+  notificationChannels: ["pagerduty", "slack#database-alerts", "telegram:your_chat_id"]
   burnRateThresholds:
     - rate: 10.0
       period: 30m
@@ -1310,7 +1433,7 @@ examples:
 
 alerting:
   enabled: true
-  notificationChannels: ["pagerduty", "slack#k8s-alerts"]
+  notificationChannels: ["pagerduty", "slack#k8s-alerts", "telegram:your_chat_id"]
   burnRateThresholds:
     - rate: 5.0
       period: 30m
@@ -1384,6 +1507,10 @@ func main() {
 	os.MkdirAll("./templates", 0755) // Создаем директорию для шаблонов
 	os.MkdirAll("./static", 0755)
 
+	// Проверяем наличие Telegram переменных окружения
+	telegramBotToken := os.Getenv("TELEGRAM_BOT_TOKEN")
+	telegramChatID := os.Getenv("TELEGRAM_CHAT_ID")
+
 	// Копируем примеры шаблонов если директория пуста
 	if err := copyExampleTemplates(); err != nil {
 		log.Printf("Note: %v", err)
@@ -1415,10 +1542,27 @@ func main() {
 	fmt.Printf("📁 Data directory: ./data/\n")
 	fmt.Printf("📁 Templates directory: ./templates/\n")
 	fmt.Printf("📁 Static directory: ./static/\n")
+
+	// Отображаем статус Telegram
+	if telegramBotToken != "" && telegramChatID != "" {
+		tokenPreview := telegramBotToken
+		if len(tokenPreview) > 10 {
+			tokenPreview = tokenPreview[:10] + "..."
+		}
+		fmt.Printf("🤖 Telegram bot configured\n")
+		fmt.Printf("   • Bot token: %s\n", tokenPreview)
+		fmt.Printf("   • Chat ID: %s\n", telegramChatID)
+	} else {
+		fmt.Printf("⚠️  Telegram bot not configured (set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID env vars)\n")
+		fmt.Printf("   To enable Telegram alerts, run:\n")
+		fmt.Printf("   export TELEGRAM_BOT_TOKEN='your_bot_token'\n")
+		fmt.Printf("   export TELEGRAM_CHAT_ID='your_chat_id'\n")
+	}
+
 	fmt.Printf("🔔 Alerting features:\n")
 	fmt.Printf("   • OpenSLO Alert Policies\n")
 	fmt.Printf("   • Prometheus Alert Rules\n")
-	fmt.Printf("   • AlertManager Config\n")
+	fmt.Printf("   • AlertManager Config with Telegram support\n")
 	fmt.Printf("   • Grafana Dashboards\n")
 	fmt.Printf("   • README with instructions\n")
 	fmt.Printf("📦 All files are now downloaded as ZIP archive\n")
@@ -1428,4 +1572,12 @@ func main() {
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
 		log.Fatal("Server failed:", err)
 	}
+}
+
+// Вспомогательная функция для минимума
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

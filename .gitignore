@@ -1,2 +1,14 @@
 slozy
 slozy-deploy.tar.gz
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+.vscode/*
+*~
+*.swp
+*.bak
+*.env
+*.log
