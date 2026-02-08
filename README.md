@@ -11,8 +11,11 @@ A tool for creating SLOs (Service Level Objectives) in OpenSLO format with full 
 ## What is this?
 
 SLOzy is a web tool that allows development and product teams to create SLOs without needing to understand the complexities of the [OpenSLO](https://github.com/OpenSLO/OpenSLO) format.
+
 Input data is validated; if something is wrong, you'll get a hint.
+
 Just fill out the form, get a ready-made YAML file, and put it where the SREs tell you to—they'll handle the rest.
+
 For the toughest cases, you can click "Fill example" and all fields will be filled with hints.
 
 ## ✨ Features
