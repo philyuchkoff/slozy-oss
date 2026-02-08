@@ -397,7 +397,7 @@ func generateAlertManagerConfig(slo ServiceSLO) ([]byte, error) {
 				parts := strings.Split(channel, "#")
 				channelName := parts[1]
 				slackConfig = map[string]interface{}{
-					"api_url":  "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX",
+					"api_url":  "https://hooks.slack.com/services/T00000000/B00000000/secret",
 					"channel":  "#" + channelName,
 					"title":    "{{ .GroupLabels.service }} SLO Alert",
 					"text":     "{{ range .Alerts }}{{ .Annotations.description }}\n{{ end }}",
