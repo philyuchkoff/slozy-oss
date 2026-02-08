@@ -1,0 +1,44 @@
+apiVersion: openslo/v1alpha
+kind: SLO
+metadata:
+  name: postgres-users-db-query-latency
+  displayName: PostgreSQL users database query latency
+  labels:
+    team: data-platform
+    service: postgres
+    database: users
+spec:
+  description: 95th percentile query latency for users database
+  service: postgres
+  timeWindows:
+    - duration: 7d
+      isRolling: true
+  objectives:
+    - displayName: 95th percentile query latency for users database
+      op: lte
+      value: 0.99
+      target: 1
+  indicator:
+    thresholdMetric:
+      threshold:
+        metricSourceRef: prometheus
+        query: histogram_quantile(0.95, rate(pg_query_duration_seconds_bucket{database="users"}[2m]))
+  alertPolicies:
+    - condition:
+        kind: burnrate
+        threshold: 20.0
+        lookbackWindow: 30m
+      notification:
+        channels:
+          - pagerduty
+          - email:dba-team@example.com
+      labels:
+        severity: critical
+        service: postgres
+        slo: query-latency
+        team: data-platform
+        alert_name: CriticalBurnRate
+      annotations:
+        summary: High error budget burn rate for query-latency
+        description: postgres is burning error budget 20.0 times faster than allowed for 30m
+        dashboard: https://grafana.example.com/d/postgres-users-db-query-latency

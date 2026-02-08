@@ -1,0 +1,47 @@
+apiVersion: openslo/v1alpha
+kind: SLO
+metadata:
+  name: payment-service-checkout-availability
+  displayName: Checkout API availability
+  labels:
+    team: payment
+    service: payment-service
+    component: checkout
+spec:
+  description: Checkout API availability for successful transactions
+  service: payment-service
+  timeWindows:
+    - duration: 28d
+      isRolling: true
+  objectives:
+    - displayName: Checkout API availability for successful transactions
+      op: lte
+      value: 0.9995
+      target: 1
+  indicator:
+    ratioMetric:
+      counter: true
+      good:
+        metricSourceRef: prometheus
+        query: sum(rate(http_requests_total{job="payment-service", endpoint="/checkout", status=~"2.."}[5m]))
+      total:
+        metricSourceRef: prometheus
+        query: sum(rate(http_requests_total{job="payment-service", endpoint="/checkout"}[5m]))
+  alertPolicies:
+    - condition:
+        kind: burnrate
+        threshold: 5.0
+        lookbackWindow: 1h
+      notification:
+        channels:
+          - slack#payment-alerts
+      labels:
+        severity: warning
+        service: payment-service
+        slo: checkout-availability
+        team: payment
+        alert_name: HighBurnRate_5_0x_1h
+      annotations:
+        summary: High error budget burn rate for checkout-availability
+        description: payment-service is burning error budget 5.0 times faster than allowed for 1h
+        dashboard: https://grafana.example.com/d/payment-service-checkout-availability

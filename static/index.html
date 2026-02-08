@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>SLOzy - Simple SLO Creator</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <i class="fas fa-sloth logo-icon"></i>
+                SLOzy
+            </div>
+            <h1>Create Service Level Objectives</h1>
+            <p class="lead">Generate OpenSLO YAML files with full alerting support. No more manual YAML writing!</p>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" onclick="showTab('create')">
+                <i class="fas fa-plus-circle"></i> Create SLO
+            </div>
+            <div class="tab" onclick="showTab('templates')">
+                <i class="fas fa-layer-group"></i> Templates
+            </div>
+            <div class="tab" onclick="showTab('existing')">
+                <i class="fas fa-list"></i> Existing SLOs
+            </div>
+        </div>
+
+        <!-- Create Tab -->
+        <div id="create-tab" class="tab-content active">
+            <div class="form-container">
+                <!-- Basic Information -->
+                <div class="form-section">
+                    <h3><i class="fas fa-info-circle"></i> Basic Information</h3>
+                    <div class="form-group">
+                        <label for="serviceName"><i class="fas fa-server"></i> Service Name *</label>
+                        <input type="text" id="serviceName" placeholder="user-api, payment-service" required>
+                        <small>Unique identifier for your service</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sloName"><i class="fas fa-bullseye"></i> SLO Name *</label>
+                        <input type="text" id="sloName" placeholder="api-latency, checkout-availability" required>
+                        <small>Descriptive name for this SLO</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="team"><i class="fas fa-users"></i> Team</label>
+                        <select id="team">
+                            <option value="">Select team...</option>
+                            <option value="backend">Backend</option>
+                            <option value="frontend">Frontend</option>
+                            <option value="platform">Platform</option>
+                            <option value="data">Data</option>
+                            <option value="mobile">Mobile</option>
+                            <option value="infra">Infrastructure</option>
+                            <option value="sre">SRE</option>
+                            <option value="devops">DevOps</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sloDescription"><i class="fas fa-align-left"></i> Description (optional)</label>
+                        <textarea id="sloDescription" placeholder="Describe what this SLO measures..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Metrics & Targets -->
+                <div class="form-section">
+                    <h3><i class="fas fa-chart-line"></i> Metrics & Targets</h3>
+
+                    <div class="form-group">
+                        <label for="indicatorType"><i class="fas fa-ruler"></i> What to measure? *</label>
+                        <select id="indicatorType" required>
+                            <option value="latency">Latency (response time)</option>
+                            <option value="availability">Availability (uptime)</option>
+                            <option value="throughput">Throughput</option>
+                            <option value="custom">Custom metric</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="target"><i class="fas fa-tachometer-alt"></i> Target (%) *</label>
+                        <div class="target-input-group">
+                            <input type="range" id="targetRange" min="90" max="100" step="0.1" value="99.9">
+                            <input type="number" id="target" min="90" max="100" step="0.1" value="99.9" required>
+                        </div>
+                        <small>e.g., 99.9% of requests should meet the criteria</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="threshold"><i class="fas fa-balance-scale"></i> Threshold *</label>
+                        <input type="text" id="threshold" value="200ms" required>
+                        <small>e.g., 200ms for latency, 0.001 for error rate</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="budgetingPeriod"><i class="fas fa-calendar-alt"></i> Budgeting Period</label>
+                        <select id="budgetingPeriod">
+                            <option value="28d">28 days (recommended)</option>
+                            <option value="30d">30 days</option>
+                            <option value="7d">7 days</option>
+                            <option value="1d">1 day</option>
+                            <option value="90d">90 days</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Metric Configuration -->
+                <div class="form-section">
+                    <h3><i class="fas fa-database"></i> Metric Configuration</h3>
+
+                    <div class="form-group">
+                        <label for="metricSource"><i class="fas fa-plug"></i> Metric Source</label>
+                        <select id="metricSource">
+                            <option value="prometheus">Prometheus</option>
+                            <option value="datadog">Datadog</option>
+                            <option value="cloudwatch">AWS CloudWatch</option>
+                            <option value="stackdriver">Google Cloud Monitoring</option>
+                            <option value="newrelic">New Relic</option>
+                            <option value="graphite">Graphite</option>
+                            <option value="influxdb">InfluxDB</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="metricQuery"><i class="fas fa-code"></i> Metric Query *</label>
+                        <textarea id="metricQuery"
+                            placeholder="Enter your metric query (PromQL, CloudWatch query, etc.)" required></textarea>
+                        <small>
+                            <i class="fas fa-lightbulb"></i> Tip: For latency, use histogram_quantile. For availability,
+                            use success rate.
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fas fa-question-circle"></i> Query Examples</label>
+                        <div class="example-buttons">
+                            <button type="button" onclick="setExample('latency')" class="btn btn-secondary">
+                                Latency Example
+                            </button>
+                            <button type="button" onclick="setExample('availability')" class="btn btn-secondary">
+                                Availability Example
+                            </button>
+                            <button type="button" onclick="setExample('throughput')" class="btn btn-secondary">
+                                Throughput Example
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Advanced Options with Alerting -->
+                <div class="form-section">
+                    <h3><i class="fas fa-cogs"></i> Advanced Options</h3>
+
+                    <div class="form-group">
+                        <label for="serviceDescription"><i class="fas fa-align-left"></i> Service Description</label>
+                        <textarea id="serviceDescription"
+                            placeholder="Optional description of the service..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fas fa-tags"></i> Labels (optional)</label>
+                        <div id="labelsContainer">
+                            <div class="label-input">
+                                <input type="text" placeholder="key" class="label-key">
+                                <input type="text" placeholder="value" class="label-value">
+                                <button type="button" onclick="removeLabel(this)" class="btn btn-secondary btn-sm">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <button type="button" onclick="addLabel()" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-plus"></i> Add Label
+                        </button>
+                    </div>
+
+                    <!-- Alerting Configuration -->
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="enableAlerting" onchange="toggleAlertingConfig()">
+                            <i class="fas fa-bell"></i> Enable Alerting
+                        </label>
+                        <small>
+                            Generate alert policies for error budget burn rate monitoring
+                        </small>
+                    </div>
+
+                    <div id="alertingConfig" class="alerting-config">
+                        <h4><i class="fas fa-cog"></i> Alert Configuration</h4>
+
+                        <div class="form-group">
+                            <label for="notificationChannels">
+                                <i class="fas fa-broadcast-tower"></i> Notification Channels
+                            </label>
+                            <div style="display: flex; align-items: center;">
+                                <input type="text" id="notificationChannels"
+                                    placeholder="slack#slo-alerts, email:sre@example.com, pagerduty, telegram:chat_id"
+                                    style="flex: 1;">
+                                <button type="button" onclick="showTelegramHelp()"
+                                    class="btn btn-info btn-sm telegram-help-btn">
+                                    <i class="fab fa-telegram"></i> Help
+                                </button>
+                            </div>
+                            <small>
+                                Comma-separated list. Supported: slack, email, pagerduty, telegram, webhook
+                                <br>
+                                <i class="fab fa-telegram"></i> For Telegram: add <code>telegram:chat_id</code> (chat ID
+                                from @BotFather)
+                            </small>
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fas fa-fire"></i> Burn Rate Thresholds</label>
+                            <small>
+                                Configure when alerts should fire based on error budget burn rate
+                            </small>
+
+                            <div id="burnRateThresholds">
+                                <div class="threshold-row">
+                                    <select class="threshold-severity">
+                                        <option value="warning">Warning</option>
+                                        <option value="critical">Critical</option>
+                                    </select>
+                                    <input type="number" class="threshold-rate" placeholder="10" step="0.1" min="1"
+                                        value="10">
+                                    <span class="threshold-label">x faster for</span>
+                                    <select class="threshold-period">
+                                        <option value="5m">5 minutes</option>
+                                        <option value="30m">30 minutes</option>
+                                        <option value="1h" selected>1 hour</option>
+                                        <option value="6h">6 hours</option>
+                                        <option value="1d">1 day</option>
+                                    </select>
+                                    <input type="text" class="threshold-name" placeholder="Alert name"
+                                        value="HighBurnRate">
+                                    <button type="button" onclick="removeThreshold(this)"
+                                        class="btn btn-secondary btn-danger btn-sm">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <button type="button" onclick="addThreshold()" class="btn btn-secondary btn-sm">
+                                <i class="fas fa-plus"></i> Add Threshold
+                            </button>
+
+                            <div class="threshold-tips">
+                                <i class="fas fa-lightbulb"></i>
+                                <strong>Recommended thresholds:</strong><br>
+                                • Warning: 5-10x faster for 1h<br>
+                                • Critical: 50-100x faster for 5m
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fas fa-download"></i> Output Formats</label>
+                            <div class="output-formats">
+                                <label>
+                                    <input type="checkbox" id="outputPrometheus" checked disabled>
+                                    <span>Prometheus Rules (always included)</span>
+                                </label>
+                                <label>
+                                    <input type="checkbox" id="outputGrafana" checked disabled>
+                                    <span>Grafana Dashboard (always included)</span>
+                                </label>
+                                <label>
+                                    <input type="checkbox" id="outputAlertManager" checked disabled>
+                                    <span>AlertManager Config (always included)</span>
+                                </label>
+                            </div>
+                            <small>All configurations are included in the ZIP archive</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" id="submitBtn" class="btn btn-primary" onclick="createSLO()">
+                    <i class="fas fa-magic"></i> Generate SLO with Alerts
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="clearForm()">
+                    <i class="fas fa-broom"></i> Clear Form
+                </button>
+                <button type="button" class="btn btn-info" onclick="fillExample()">
+                    <i class="fas fa-vial"></i> Fill Example
+                </button>
+                <button type="button" class="btn btn-success" onclick="showTab('templates')">
+                    <i class="fas fa-layer-group"></i> Use Template
+                </button>
+            </div>
+        </div>
+
+        <!-- Templates Tab -->
+        <div id="templates-tab" class="tab-content">
+            <h3><i class="fas fa-layer-group"></i> Available Templates</h3>
+            <p class="tab-description">Select a template to pre-fill the form with recommended settings.</p>
+
+            <div id="templatesList" class="template-selector">
+                <!-- Templates will be loaded here -->
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn btn-primary" onclick="showTab('create')">
+                    <i class="fas fa-arrow-left"></i> Back to Form
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="createDefaultTemplate()">
+                    <i class="fas fa-plus"></i> Create Default Templates
+                </button>
+            </div>
+        </div>
+
+        <!-- Existing SLOs Tab -->
+        <div id="existing-tab" class="tab-content">
+            <h3><i class="fas fa-list"></i> Existing SLOs</h3>
+            <p class="tab-description">SLOs that have been created and saved.</p>
+
+            <div id="existingSLOsList" class="existing-slos">
+                <!-- Existing SLOs will be loaded here -->
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn btn-primary" onclick="loadExistingSLOs()">
+                    <i class="fas fa-sync"></i> Refresh List
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="showTab('create')">
+                    <i class="fas fa-arrow-left"></i> Back to Form
+                </button>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="result" class="result">
+            <h3><i class="fas fa-file-code"></i> Generated Files</h3>
+            <div id="message"></div>
+            <div id="loadingIndicator" class="loading-indicator">
+                <div class="loading"></div>
+                <p>Creating ZIP archive with all configuration files...</p>
+            </div>
+            <div id="filesList"></div>
+            <pre id="yamlOutput"></pre>
+            <div class="form-actions">
+                <button onclick="copyToClipboard()" class="btn btn-primary" id="copyBtn">
+                    <i class="fas fa-copy"></i> Copy YAML
+                </button>
+                <button onclick="createSLO()" class="btn btn-success" id="downloadBtn">
+                    <i class="fas fa-download"></i> Download All as ZIP
+                </button>
+                <button onclick="clearResult()" class="btn btn-secondary">
+                    <i class="fas fa-times"></i> Close
+                </button>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>SLOzy v1.0 | OpenSLO compatible |
+                <a href="https://openslo.com" target="_blank">
+                    <i class="fas fa-external-link-alt"></i> OpenSLO Specification
+                </a>
+            </p>
+            <p>
+                <i class="fas fa-code"></i> Made with ❤️ for SRE teams |
+                <a href="https://github.com/philyuchkoff/slozy" target="_blank" class="github-link">
+                    <i class="fab fa-github"></i> GitHub
+                </a>
+            </p>
+            <p style="font-size: 0.8em; margin-top: 10px; color: #6c757d;">
+                <i class="fas fa-bolt"></i> Features: OpenSLO | Prometheus | AlertManager | Grafana | Telegram | ZIP
+                Export
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Telegram help function
+        function showTelegramHelp() {
+            const instructions = `
+📱 <strong>Настройка Telegram бота:</strong>
+1. Создайте бота через @BotFather в Telegram
+2. Получите токен бота
+3. Добавьте бота в группу/канал или получите ваш chat ID
+4. Укажите переменные окружения на сервере:
+   - TELEGRAM_BOT_TOKEN=ваш_токен
+   - TELEGRAM_CHAT_ID=ваш_chat_id
+5. В каналах уведомлений укажите: telegram:ваш_chat_id
+
+💡 <strong>Как получить chat ID:</strong>
+- Для личных чатов: напишите /start боту @userinfobot
+- Для групп: добавьте @RawDataBot в группу
+- Для каналов: ссылка формата https://t.me/c/1234567890/1
+
+📝 <strong>Примеры:</strong>
+- Личный чат: telegram:123456789
+- Группа: telegram:-1001234567890
+- Канал: telegram:-1009876543210
+            `;
+
+            document.getElementById('yamlOutput').textContent = instructions;
+            document.getElementById('result').style.display = 'block';
+            document.getElementById('message').innerHTML = '<div class="success"><i class="fab fa-telegram"></i> Telegram Setup Instructions</div>';
+            document.getElementById('filesList').innerHTML = '';
+            document.getElementById('loadingIndicator').style.display = 'none';
+        }
+    </script>
+
+    <script src="/static/js/app.js"></script>
+</body>
+
+</html>

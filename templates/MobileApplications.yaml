@@ -1,0 +1,58 @@
+name: mobile-app
+displayName: Mobile Application
+description: Template for mobile application performance and stability
+serviceType: mobile
+
+defaults:
+  indicatorType: availability
+  metricSource: datadog  # Часто используются внешние APM решения
+  budgetingPeriod: 28d
+  target: 99.5
+  threshold: 0.005
+
+metrics:
+  crash_free_rate: |
+    avg_over_time(mobile_crash_free_users{app="$APP_NAME"}[1h])
+  app_start_time: |
+    histogram_quantile(0.95,
+      rate(mobile_app_start_duration_seconds_bucket{app="$APP_NAME"}[1h])
+    )
+  api_success_rate: |
+    sum(rate(mobile_api_requests_total{app="$APP_NAME",status="success"}[5m])) / sum(rate(mobile_api_requests_total{app="$APP_NAME"}[5m]))
+  frame_rate: |
+    avg_over_time(mobile_frame_rate_fps{app="$APP_NAME"}[5m])
+  anr_rate: |
+    rate(mobile_anr_total{app="$APP_NAME"}[1h])
+
+examples:
+  - name: Crash Free Rate
+    description: Percentage of users without crashes
+    indicatorType: availability
+    target: 99.5
+    metricQuery: avg_over_time(mobile_crash_free_users{app="myapp"}[1h])
+  
+  - name: App Cold Start Time
+    description: 95th percentile cold app start time
+    indicatorType: latency
+    target: 95.0
+    threshold: "3s"
+    metricQuery: histogram_quantile(0.95, rate(mobile_app_start_duration_seconds_bucket{app="myapp",type="cold"}[1h]))
+  
+  - name: API Success Rate
+    description: Success rate of mobile API calls
+    indicatorType: availability
+    target: 99.0
+    metricQuery: sum(rate(mobile_api_requests_total{app="myapp",status="success"}[5m])) / sum(rate(mobile_api_requests_total{app="myapp"}[5m]))
+
+alerting:
+  enabled: true
+  notificationChannels: ["slack#mobile-alerts", "pagerduty"]
+  burnRateThresholds:
+    - rate: 2.0
+      period: 4h
+      severity: warning
+      alertName: "MobileWarning"
+    - rate: 5.0
+      period: 30m
+      severity: critical
+      alertName: "MobileCritical"

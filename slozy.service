@@ -1,0 +1,13 @@
+[Unit]
+Description=SLOzy - SLO Creation Tool
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/slozy
+ExecStart=/opt/slozy/slozy
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

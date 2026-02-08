@@ -1,0 +1,61 @@
+apiVersion: openslo/v1alpha
+kind: SLO
+metadata:
+  name: user-api-api-latency
+  displayName: 99th percentile latency for API endpoints
+  labels:
+    team: backend
+    service: user-api
+    environment: production
+spec:
+  description: 99th percentile latency for API endpoints
+  service: user-api
+  timeWindows:
+    - duration: 28d
+      isRolling: true
+  objectives:
+    - displayName: 99th percentile latency for API endpoints
+      op: lte
+      value: 0.999
+      target: 1
+  indicator:
+    thresholdMetric:
+      threshold:
+        metricSourceRef: prometheus
+        query: histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{job="user-api"}[5m]))
+  alertPolicies:
+    - condition:
+        kind: burnrate
+        threshold: 10.0
+        lookbackWindow: 1h
+      notification:
+        channels:
+          - slack#slo-alerts
+          - email:sre@example.com
+      labels:
+        severity: warning
+        service: user-api
+        slo: api-latency
+        team: backend
+        alert_name: HighBurnRate_10_0x_1h
+      annotations:
+        summary: High error budget burn rate for api-latency
+        description: user-api is burning error budget 10.0 times faster than allowed for 1h
+        dashboard: https://grafana.example.com/d/user-api-api-latency
+    - condition:
+        kind: burnrate
+        threshold: 50.0
+        lookbackWindow: 5m
+      notification:
+        channels:
+          - pagerduty
+      labels:
+        severity: critical
+        service: user-api
+        slo: api-latency
+        team: backend
+        alert_name: CriticalBurnRate
+      annotations:
+        summary: High error budget burn rate for api-latency
+        description: user-api is burning error budget 50.0 times faster than allowed for 5m
+        dashboard: https://grafana.example.com/d/user-api-api-latency

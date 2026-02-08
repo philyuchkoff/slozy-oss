@@ -1,0 +1,44 @@
+groups:
+  - name: slo-user-api-api-latency
+    rules:
+      - alert: user_api_api_latency_BurnRateHigh
+        expr: |
+          (
+            (1 - (clamp_min(histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{job="user-api"}[5m])), 0) / 200ms))
+            / (1 - 0.999)
+          ) > 10.0
+        for: 1h
+        labels:
+          severity: warning
+          service: user-api
+          slo: api-latency
+          slo_indicator: latency
+          slo_target: 99.9
+          team: backend
+          burn_rate_threshold: 10.0x
+        annotations:
+          summary: High error budget burn rate for user-api/api-latency
+          description: |
+            {{ $labels.service }} {{ $labels.slo }} is burning error budget {{ $labels.burn_rate_threshold }} faster than allowed.
+            Current burn rate: {{ $value }}x
+            SLO Target: {{ $labels.slo_target }}%
+            For: 1h
+          dashboard: https://grafana.example.com/d/user-api-api-latency
+      - alert: user_api_api_latency_BurnRateHigh_Critical
+        expr: |
+          (
+            (1 - (clamp_min(histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{job="user-api"}[5m])), 0) / 200ms))
+            / (1 - 0.999)
+          ) > 50.0
+        for: 5m
+        labels:
+          severity: critical
+          service: user-api
+          slo: api-latency
+          slo_indicator: latency
+          slo_target: 99.9
+          team: backend
+          burn_rate_threshold: 50.0x
+        annotations:
+          summary: CRITICAL: Very high error budget burn rate for user-api/api-latency
+          description: Error budget is being consumed extremely fast. Immediate action required!

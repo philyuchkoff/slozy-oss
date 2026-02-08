@@ -1,0 +1,58 @@
+name: iot-devices
+displayName: IoT Devices
+description: Template for Internet of Things devices and telemetry
+serviceType: iot
+
+defaults:
+  indicatorType: availability
+  metricSource: prometheus
+  budgetingPeriod: 7d  # Короткий период из-за высокой волатильности
+  target: 98.0
+  threshold: 0.02
+
+metrics:
+  device_online_rate: |
+    avg_over_time(iot_device_online{device_type="$TYPE"}[1h])
+  message_delivery_rate: |
+    sum(rate(iot_messages_delivered_total{device_type="$TYPE"}[5m])) / sum(rate(iot_messages_sent_total{device_type="$TYPE"}[5m]))
+  telemetry_latency: |
+    histogram_quantile(0.95,
+      rate(iot_telemetry_delay_seconds_bucket{device_type="$TYPE"}[5m])
+    )
+  battery_level: |
+    avg_over_time(iot_device_battery_level{device_type="$TYPE"}[1h])
+  connection_stability: |
+    rate(iot_connection_drops_total{device_type="$TYPE"}[1h])
+
+examples:
+  - name: Device Online Rate
+    description: Percentage of devices connected to the network
+    indicatorType: availability
+    target: 95.0
+    metricQuery: avg_over_time(iot_device_online{device_type="sensor"}[1h])
+  
+  - name: Message Delivery Rate
+    description: Success rate of message delivery from devices
+    indicatorType: availability
+    target: 99.0
+    metricQuery: sum(rate(iot_messages_delivered_total{device_type="sensor"}[5m])) / sum(rate(iot_messages_sent_total{device_type="sensor"}[5m]))
+  
+  - name: Telemetry Latency
+    description: 95th percentile telemetry data delay
+    indicatorType: latency
+    target: 90.0
+    threshold: "30s"
+    metricQuery: histogram_quantile(0.95, rate(iot_telemetry_delay_seconds_bucket{device_type="sensor"}[5m]))
+
+alerting:
+  enabled: true
+  notificationChannels: ["slack#iot-alerts", "sms"]
+  burnRateThresholds:
+    - rate: 3.0
+      period: 2h
+      severity: warning
+      alertName: "IoTWarning"
+    - rate: 10.0
+      period: 15m
+      severity: critical
+      alertName: "IoTCritical"

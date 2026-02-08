@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  slozy:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+      - ./templates:/app/templates
+    environment:
+      - PORT=8080
+    restart: unless-stopped

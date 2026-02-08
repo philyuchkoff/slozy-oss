@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  slozy:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - TELEGRAM_WARNING_CHAT_ID=${TELEGRAM_WARNING_CHAT_ID:-${TELEGRAM_CHAT_ID}}
+      - TELEGRAM_CRITICAL_CHAT_ID=${TELEGRAM_CRITICAL_CHAT_ID:-${TELEGRAM_CHAT_ID}}
+    restart: unless-stopped
+
+  # Опционально: Prometheus для тестирования алертов
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./alerts/:/etc/prometheus/alerts/
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+
+  # Опционально: Alertmanager с Telegram поддержкой
+  alertmanager:
+    image: prom/alertmanager:latest
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
+  alertmanager-data:

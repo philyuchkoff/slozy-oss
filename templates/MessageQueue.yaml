@@ -1,0 +1,65 @@
+name: message-queue
+displayName: Message Queue System
+description: Template for message queues (Kafka, RabbitMQ, NATS)
+serviceType: messaging
+
+defaults:
+  indicatorType: latency
+  metricSource: prometheus
+  budgetingPeriod: 28d
+  target: 99.9
+  threshold: "50ms"
+
+metrics:
+  produce_latency: |
+    histogram_quantile(0.99,
+      rate(kafka_produce_latency_seconds_bucket{topic="$TOPIC"}[5m])
+    )
+  consume_latency: |
+    histogram_quantile(0.99,
+      rate(kafka_consumer_fetch_latency_seconds_bucket{topic="$TOPIC"}[5m])
+    )
+  delivery_rate: |
+    sum(rate(kafka_consumer_records_consumed_total{topic="$TOPIC"}[5m])) / sum(rate(kafka_producer_records_produced_total{topic="$TOPIC"}[5m]))
+  lag_seconds: |
+    max(kafka_consumer_lag_seconds{topic="$TOPIC",consumer_group="$GROUP"})
+  connection_availability: |
+    avg_over_time(kafka_connection_count{state="active"}[5m]) / avg_over_time(kafka_connection_count[5m])
+
+examples:
+  - name: Kafka Produce Latency
+    description: 99th percentile message produce latency
+    indicatorType: latency
+    target: 99.9
+    threshold: "100ms"
+    metricQuery: histogram_quantile(0.99, rate(kafka_producer_request_latency_seconds_bucket{topic="orders"}[5m]))
+  
+  - name: Consumer Lag
+    description: Maximum consumer lag in seconds
+    indicatorType: latency
+    target: 99.5
+    threshold: "30s"
+    metricQuery: max(kafka_consumer_lag_seconds{topic="orders",consumer_group="payment-service"})
+  
+  - name: Message Delivery Rate
+    description: Success rate of message delivery
+    indicatorType: availability
+    target: 99.99
+    metricQuery: sum(rate(kafka_consumer_records_consumed_total{topic="orders"}[5m])) / sum(rate(kafka_producer_records_produced_total{topic="orders"}[5m]))
+
+alerting:
+  enabled: true
+  notificationChannels: ["slack#mq-alerts", "email:data-team@example.com"]
+  burnRateThresholds:
+    - rate: 3.0
+      period: 1h
+      severity: warning
+      alertName: "MQWarning"
+    - rate: 10.0
+      period: 10m
+      severity: critical
+      alertName: "MQCritical"
+    - rate: 50.0
+      period: 2m
+      severity: critical
+      alertName: "MQEmergency"

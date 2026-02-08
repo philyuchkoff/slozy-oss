@@ -1,0 +1,30 @@
+name: database
+displayName: Database Service
+description: Template for database services (query latency, availability)
+serviceType: database
+
+defaults:
+  indicatorType: latency
+  metricSource: prometheus
+  budgetingPeriod: 28d
+  target: 99.9
+  threshold: 100ms
+
+metrics:
+  query_latency: |
+    histogram_quantile(0.99,
+      rate(pg_query_duration_seconds_bucket{database="$DB_NAME"}[5m])
+    )
+  connection_pool: |
+    avg_over_time(pg_connection_pool_utilization{database="$DB_NAME"}[5m])
+  replication_lag: |
+    pg_replication_lag_seconds{database="$DB_NAME"}
+
+examples:
+  - name: Postgres Query Latency
+    description: 99th percentile query latency
+    metricQuery: histogram_quantile(0.99, rate(pg_query_duration_seconds_bucket{database="users"}[5m]))
+  
+  - name: Database Availability
+    description: Connection success rate
+    metricQuery: sum(rate(pg_connections_total{database="users",status="success"}[5m])) / sum(rate(pg_connections_total{database="users"}[5m]))

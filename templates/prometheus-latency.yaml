@@ -1,0 +1,18 @@
+name: prometheus-latency
+displayName: Prometheus Latency SLO
+description: Standard latency SLO for HTTP services monitored with Prometheus
+serviceType: web-api
+
+defaults:
+  indicatorType: latency
+  metricSource: prometheus
+  budgetingPeriod: 28d
+  target: 99.9
+  threshold: 200ms
+
+examples:
+  - name: API 99th Percentile Latency
+    metricQuery: histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{job="$SERVICE"}[5m]))
+    
+  - name: GRPC Latency
+    metricQuery: histogram_quantile(0.99, rate(grpc_server_handling_seconds_bucket{grpc_service="$SERVICE"}[5m]))

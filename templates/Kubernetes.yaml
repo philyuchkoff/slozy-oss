@@ -1,0 +1,58 @@
+name: kubernetes
+displayName: Kubernetes Infrastructure
+description: Template for Kubernetes cluster components (API server, nodes, pods)
+serviceType: infrastructure
+
+defaults:
+  indicatorType: availability
+  metricSource: prometheus
+  budgetingPeriod: 7d  # Более короткий период для инфраструктуры
+  target: 99.95
+  threshold: 0.0005
+
+metrics:
+  api_server_latency: |
+    histogram_quantile(0.99,
+      rate(apiserver_request_duration_seconds_bucket{verb!="WATCH"}[5m])
+    )
+  api_server_availability: |
+    sum(rate(apiserver_request_total{code=~"2.."}[5m])) / sum(rate(apiserver_request_total[5m]))
+  node_ready: |
+    avg_over_time(kube_node_status_condition{condition="Ready",status="true"}[5m])
+  pod_ready: |
+    avg_over_time(kube_pod_status_ready{condition="true"}[5m])
+  scheduler_success: |
+    sum(rate(scheduler_e2e_scheduling_duration_seconds_count{result="scheduled"}[5m])) / sum(rate(scheduler_e2e_scheduling_duration_seconds_count[5m]))
+
+examples:
+  - name: Kubernetes API Server Availability
+    description: Availability of Kubernetes API server
+    indicatorType: availability
+    target: 99.95
+    metricQuery: sum(rate(apiserver_request_total{code=~"2.."}[5m])) / sum(rate(apiserver_request_total[5m]))
+  
+  - name: API Server Latency
+    description: 99th percentile API server response time
+    indicatorType: latency
+    target: 99.9
+    threshold: "200ms"
+    metricQuery: histogram_quantile(0.99, rate(apiserver_request_duration_seconds_bucket{verb!="WATCH"}[5m]))
+  
+  - name: Node Readiness
+    description: Percentage of ready nodes in the cluster
+    indicatorType: availability
+    target: 99.9
+    metricQuery: avg_over_time(kube_node_status_condition{condition="Ready",status="true"}[5m])
+
+alerting:
+  enabled: true
+  notificationChannels: ["pagerduty", "slack#k8s-alerts"]
+  burnRateThresholds:
+    - rate: 5.0
+      period: 30m
+      severity: warning
+      alertName: "K8sInfraWarning"
+    - rate: 20.0
+      period: 5m
+      severity: critical
+      alertName: "K8sInfraCritical"

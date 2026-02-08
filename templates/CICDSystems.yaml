@@ -1,0 +1,60 @@
+name: ci-cd
+displayName: CI/CD Pipeline
+description: Template for CI/CD systems (Jenkins, GitLab CI, GitHub Actions)
+serviceType: pipeline
+
+defaults:
+  indicatorType: availability
+  metricSource: prometheus
+  budgetingPeriod: 28d
+  target: 99.5
+  threshold: 0.005
+
+metrics:
+  pipeline_success_rate: |
+    sum(rate(jenkins_job_builds_total{result="SUCCESS"}[24h])) / sum(rate(jenkins_job_builds_total[24h]))
+  build_duration: |
+    histogram_quantile(0.95,
+      rate(jenkins_job_build_duration_seconds_bucket[24h])
+    )
+  queue_time: |
+    histogram_quantile(0.95,
+      rate(jenkins_job_queue_duration_seconds_bucket[24h])
+    )
+  agent_availability: |
+    avg_over_time(jenkins_agent_online[5m]) / avg_over_time(jenkins_agent_total[5m])
+  deployment_success: |
+    sum(rate(argocd_app_sync_total{phase="Succeeded"}[24h])) / sum(rate(argocd_app_sync_total[24h]))
+
+examples:
+  - name: Pipeline Success Rate
+    description: Percentage of successful pipeline runs
+    indicatorType: availability
+    target: 95.0
+    metricQuery: sum(rate(jenkins_job_builds_total{result="SUCCESS"}[24h])) / sum(rate(jenkins_job_builds_total[24h]))
+  
+  - name: Build Duration
+    description: 95th percentile build duration
+    indicatorType: latency
+    target: 90.0
+    threshold: "10m"
+    metricQuery: histogram_quantile(0.95, rate(jenkins_job_build_duration_seconds_bucket[24h]))
+  
+  - name: Agent Availability
+    description: Percentage of available CI agents
+    indicatorType: availability
+    target: 99.0
+    metricQuery: avg_over_time(jenkins_agent_online[5m]) / avg_over_time(jenkins_agent_total[5m])
+
+alerting:
+  enabled: true
+  notificationChannels: ["slack#ci-alerts", "email:devops@example.com"]
+  burnRateThresholds:
+    - rate: 3.0
+      period: 2h
+      severity: warning
+      alertName: "CIWarning"
+    - rate: 10.0
+      period: 30m
+      severity: critical
+      alertName: "CICritical"

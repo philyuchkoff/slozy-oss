@@ -1,0 +1,58 @@
+name: cache
+displayName: Cache System
+description: Template for cache systems (Redis, Memcached, CDN)
+serviceType: cache
+
+defaults:
+  indicatorType: latency
+  metricSource: prometheus
+  budgetingPeriod: 28d
+  target: 99.9
+  threshold: "5ms"
+
+metrics:
+  get_latency: |
+    histogram_quantile(0.99,
+      rate(redis_command_duration_seconds_bucket{command="get"}[5m])
+    )
+  hit_ratio: |
+    sum(rate(redis_keyspace_hits_total[5m])) / (sum(rate(redis_keyspace_hits_total[5m])) + sum(rate(redis_keyspace_misses_total[5m])))
+  connection_usage: |
+    avg_over_time(redis_connected_clients[5m]) / avg_over_time(redis_maxclients[5m])
+  memory_usage: |
+    avg_over_time(redis_memory_used_bytes[5m]) / avg_over_time(redis_memory_max_bytes[5m])
+  eviction_rate: |
+    rate(redis_evicted_keys_total[5m])
+
+examples:
+  - name: Redis GET Latency
+    description: 99th percentile GET operation latency
+    indicatorType: latency
+    target: 99.9
+    threshold: "10ms"
+    metricQuery: histogram_quantile(0.99, rate(redis_command_duration_seconds_bucket{command="get"}[5m]))
+  
+  - name: Cache Hit Ratio
+    description: Percentage of cache hits
+    indicatorType: availability
+    target: 95.0
+    metricQuery: sum(rate(redis_keyspace_hits_total[5m])) / (sum(rate(redis_keyspace_hits_total[5m])) + sum(rate(redis_keyspace_misses_total[5m])))
+  
+  - name: Redis Memory Usage
+    description: Memory utilization percentage
+    indicatorType: custom
+    target: 80.0
+    metricQuery: avg_over_time(redis_memory_used_bytes[5m]) / avg_over_time(redis_memory_max_bytes[5m])
+
+alerting:
+  enabled: true
+  notificationChannels: ["slack#cache-alerts", "telegram:-1001234567890"]
+  burnRateThresholds:
+    - rate: 5.0
+      period: 30m
+      severity: warning
+      alertName: "CacheWarning"
+    - rate: 20.0
+      period: 5m
+      severity: critical
+      alertName: "CacheCritical"

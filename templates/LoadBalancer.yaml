@@ -1,0 +1,60 @@
+name: load-balancer
+displayName: Load Balancer
+description: Template for load balancers (Nginx, HAProxy, Envoy)
+serviceType: networking
+
+defaults:
+  indicatorType: latency
+  metricSource: prometheus
+  budgetingPeriod: 28d
+  target: 99.9
+  threshold: "100ms"
+
+metrics:
+  request_latency: |
+    histogram_quantile(0.99,
+      rate(nginx_http_request_duration_seconds_bucket[5m])
+    )
+  success_rate: |
+    sum(rate(nginx_http_requests_total{status=~"2..|3.."}[5m])) / sum(rate(nginx_http_requests_total[5m]))
+  error_rate_4xx: |
+    sum(rate(nginx_http_requests_total{status=~"4.."}[5m])) / sum(rate(nginx_http_requests_total[5m]))
+  error_rate_5xx: |
+    sum(rate(nginx_http_requests_total{status=~"5.."}[5m])) / sum(rate(nginx_http_requests_total[5m]))
+  active_connections: |
+    avg_over_time(nginx_connections_active[5m])
+  throughput: |
+    rate(nginx_http_request_size_bytes_sum[5m]) + rate(nginx_http_response_size_bytes_sum[5m])
+
+examples:
+  - name: Nginx Request Latency
+    description: 99th percentile request processing time
+    indicatorType: latency
+    target: 99.9
+    threshold: "200ms"
+    metricQuery: histogram_quantile(0.99, rate(nginx_http_request_duration_seconds_bucket[5m]))
+  
+  - name: Load Balancer Success Rate
+    description: Percentage of successful responses (2xx/3xx)
+    indicatorType: availability
+    target: 99.95
+    metricQuery: sum(rate(nginx_http_requests_total{status=~"2..|3.."}[5m])) / sum(rate(nginx_http_requests_total[5m]))
+  
+  - name: 5xx Error Rate
+    description: Server error rate
+    indicatorType: availability
+    target: 99.9
+    metricQuery: 1 - (sum(rate(nginx_http_requests_total{status=~"5.."}[5m])) / sum(rate(nginx_http_requests_total[5m])))
+
+alerting:
+  enabled: true
+  notificationChannels: ["slack#lb-alerts", "telegram:-1001234567890"]
+  burnRateThresholds:
+    - rate: 5.0
+      period: 30m
+      severity: warning
+      alertName: "LBWarning"
+    - rate: 20.0
+      period: 5m
+      severity: critical
+      alertName: "LBCritical"

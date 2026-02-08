@@ -1,0 +1,60 @@
+name: object-storage
+displayName: Object Storage
+description: Template for object storage services (S3, GCS, MinIO)
+serviceType: storage
+
+defaults:
+  indicatorType: availability
+  metricSource: prometheus
+  budgetingPeriod: 28d
+  target: 99.95
+  threshold: 0.0005
+
+metrics:
+  get_latency: |
+    histogram_quantile(0.99,
+      rate(s3_request_duration_seconds_bucket{operation="GetObject"}[5m])
+    )
+  put_latency: |
+    histogram_quantile(0.99,
+      rate(s3_request_duration_seconds_bucket{operation="PutObject"}[5m])
+    )
+  success_rate: |
+    sum(rate(s3_requests_total{status_code=~"2.."}[5m])) / sum(rate(s3_requests_total[5m]))
+  error_rate: |
+    sum(rate(s3_requests_total{status_code=~"5.."}[5m])) / sum(rate(s3_requests_total[5m]))
+  throughput: |
+    rate(s3_bytes_transferred_total[5m])
+
+examples:
+  - name: S3 GET Availability
+    description: Availability of GET operations
+    indicatorType: availability
+    target: 99.99
+    metricQuery: sum(rate(s3_requests_total{operation="GetObject",status_code=~"2.."}[5m])) / sum(rate(s3_requests_total{operation="GetObject"}[5m]))
+  
+  - name: Object PUT Latency
+    description: 99th percentile PUT operation latency
+    indicatorType: latency
+    target: 99.9
+    threshold: "500ms"
+    metricQuery: histogram_quantile(0.99, rate(s3_request_duration_seconds_bucket{operation="PutObject"}[5m]))
+  
+  - name: Storage Throughput
+    description: Data transfer throughput
+    indicatorType: throughput
+    target: 95.0
+    metricQuery: rate(s3_bytes_transferred_total[5m])
+
+alerting:
+  enabled: true
+  notificationChannels: ["slack#storage-alerts", "pagerduty"]
+  burnRateThresholds:
+    - rate: 3.0
+      period: 1h
+      severity: warning
+      alertName: "StorageWarning"
+    - rate: 15.0
+      period: 10m
+      severity: critical
+      alertName: "StorageCritical"

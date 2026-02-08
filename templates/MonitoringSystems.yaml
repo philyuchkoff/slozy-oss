@@ -1,0 +1,62 @@
+name: monitoring
+displayName: Monitoring System
+description: Template for monitoring infrastructure (Prometheus, Grafana, Alertmanager)
+serviceType: monitoring
+
+defaults:
+  indicatorType: availability
+  metricSource: prometheus
+  budgetingPeriod: 7d
+  target: 99.95
+  threshold: 0.0005
+
+metrics:
+  scrape_success_rate: |
+    sum(rate(prometheus_target_scrapes_exceeded_sample_limit_total[5m])) == 0
+  rule_evaluation_latency: |
+    histogram_quantile(0.99,
+      rate(prometheus_rule_evaluation_duration_seconds_bucket[5m])
+    )
+  query_latency: |
+    histogram_quantile(0.99,
+      rate(prometheus_engine_query_duration_seconds_bucket[5m])
+    )
+  alertmanager_notification_success: |
+    sum(rate(alertmanager_notifications_total{integration="webhook", outcome="success"}[5m])) / sum(rate(alertmanager_notifications_total{integration="webhook"}[5m]))
+  grafana_dashboard_load: |
+    histogram_quantile(0.95,
+      rate(grafana_api_request_duration_seconds_bucket{handler="/api/dashboards/uid"}[5m])
+    )
+
+examples:
+  - name: Prometheus Scrape Success
+    description: Successful target scrapes
+    indicatorType: availability
+    target: 99.9
+    metricQuery: avg_over_time(up[5m])
+  
+  - name: Rule Evaluation Latency
+    description: 99th percentile rule evaluation time
+    indicatorType: latency
+    target: 99.9
+    threshold: "1s"
+    metricQuery: histogram_quantile(0.99, rate(prometheus_rule_evaluation_duration_seconds_bucket[5m]))
+  
+  - name: Alertmanager Notification Success
+    description: Success rate of alert notifications
+    indicatorType: availability
+    target: 99.5
+    metricQuery: sum(rate(alertmanager_notifications_total{outcome="success"}[5m])) / sum(rate(alertmanager_notifications_total[5m]))
+
+alerting:
+  enabled: true
+  notificationChannels: ["slack#monitoring-alerts", "pagerduty"]
+  burnRateThresholds:
+    - rate: 2.0
+      period: 1h
+      severity: warning
+      alertName: "MonitoringWarning"
+    - rate: 10.0
+      period: 10m
+      severity: critical
+      alertName: "MonitoringCritical"
