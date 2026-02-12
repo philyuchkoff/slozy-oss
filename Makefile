@@ -1,4 +1,4 @@
-.PHONY: build run test clean deps lint docker-build docker-run
+.PHONY: build run dev test clean deps lint docker-build docker-run install web generate-sample
 
 BINARY_NAME=slozy
 VERSION=0.1.0

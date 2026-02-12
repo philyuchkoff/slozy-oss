@@ -1,5 +1,10 @@
 slozy
 slozy-deploy.tar.gz
+slozy.zip
+DISTRIBUTION_BUILD_GUIDE.md
+CLEANUP_SUMMARY.md
+scripts/*
+dist/*
 .DS_Store
 .AppleDouble
 .LSOverride
