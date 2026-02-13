@@ -34,15 +34,6 @@ git clone https://github.com/philyuchkoff/slozy.git
 cd slozy
 ```
 
-#### Building Distribution Kits
-
-For creating distribution packages:
-```bash
-./scripts/distribute.sh
-```
-
-The script creates a self-contained `slozy.zip` with all necessary files.
-
 #### Basic Installation
 
 ```bash
@@ -395,4 +386,4 @@ Icons and visual design credit to original authors.
 
 ---
 
-**Made with ❤️ by the SLOzy team**
+**Made with ❤️**
