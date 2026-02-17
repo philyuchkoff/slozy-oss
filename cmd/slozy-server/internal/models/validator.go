@@ -33,8 +33,30 @@ func (v *Validator) Validate(slo SLO) []ValidationError {
 		errors = append(errors, *err)
 	}
 
+	// Validate metric query length
+	if len(slo.MetricQuery) > 10000 {
+		errors = append(errors, ValidationError{
+			Field:   "Metric query",
+			Message: "Metric query must be less than 10000 characters",
+		})
+	}
+
 	if err := v.validateIndicatorType(slo.IndicatorType); err != nil {
 		errors = append(errors, *err)
+	}
+
+	// Validate Team length if provided
+	if slo.Team != "" {
+		if err := v.validateFieldLength(slo.Team, "Team"); err != nil {
+			errors = append(errors, *err)
+		}
+	}
+
+	// Validate Threshold length if provided
+	if slo.Threshold != "" {
+		if err := v.validateFieldLength(slo.Threshold, "Threshold"); err != nil {
+			errors = append(errors, *err)
+		}
 	}
 
 	if err := v.validateAlerting(slo.Alerting); err != nil {
@@ -62,6 +84,43 @@ func (v *Validator) validateRequiredField(value, fieldName string) *ValidationEr
 			Message: fieldName + " is required",
 		}
 	}
+
+	// Add length validation
+	if err := v.validateFieldLength(value, fieldName); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// validateFieldLength validates string field length
+func (v *Validator) validateFieldLength(value, fieldName string) *ValidationError {
+	// Define maximum lengths for different fields
+	maxLengths := map[string]int{
+		"Service name": 100,
+		"SLO name":     100,
+		"Team":         100,
+		"Threshold":    50,
+	}
+
+	// Field-specific validation
+	if maxLength, exists := maxLengths[fieldName]; exists {
+		if len(value) > maxLength {
+			return &ValidationError{
+				Field:   fieldName,
+				Message: fmt.Sprintf("%s must be less than %d characters", fieldName, maxLength),
+			}
+		}
+	}
+
+	// General validation - no field should exceed 1000 characters
+	if len(value) > 1000 {
+		return &ValidationError{
+			Field:   fieldName,
+			Message: fmt.Sprintf("%s is too long (max 1000 characters)", fieldName),
+		}
+	}
+
 	return nil
 }
 

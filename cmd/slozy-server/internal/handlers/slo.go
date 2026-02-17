@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/philyuchkoff/slozy/cmd/slozy-server/internal/generators"
+	"golang.org/x/text/unicode/norm"
 	"github.com/philyuchkoff/slozy/cmd/slozy-server/internal/models"
 	"github.com/philyuchkoff/slozy/cmd/slozy-server/internal/middleware"
 )
@@ -207,15 +208,59 @@ func (h *SLOHandler) applyDefaults(slo *models.SLO) {
 
 // safeFilename creates a safe filename from service and SLO names
 func (h *SLOHandler) safeFilename(serviceName, sloName string) string {
+	// Normalize Unicode characters
+	normService := norm.NFC.String(serviceName)
+	normSLO := norm.NFC.String(sloName)
+
+	// Clean paths to remove any directory traversal attempts
+	cleanService := filepath.Clean(normService)
+	cleanSLO := filepath.Clean(normSLO)
+
+	// Get just the base filename (remove any path components)
+	baseService := filepath.Base(cleanService)
+	baseSLO := filepath.Base(cleanSLO)
+
+	// Windows reserved filenames
+	reserved := map[string]bool{
+		"CON": true, "PRN": true, "AUX": true, "NUL": true,
+		"COM1": true, "COM2": true, "COM3": true, "COM4": true,
+		"COM5": true, "COM6": true, "COM7": true, "COM8": true,
+		"COM9": true, "LPT1": true, "LPT2": true, "LPT3": true,
+		"LPT4": true, "LPT5": true, "LPT6": true, "LPT7": true,
+		"LPT8": true, "LPT9": true,
+	}
+
+	// If the filename matches a reserved name, prefix with underscore
+	if reserved[strings.ToUpper(baseService)] {
+		baseService = "_" + baseService
+	}
+	if reserved[strings.ToUpper(baseSLO)] {
+		baseSLO = "_" + baseSLO
+	}
+
+		// Allowed characters
 	safeFunc := func(r rune) rune {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' {
+		// Remove null bytes
+		if r == 0 {
+			return -1
+		}
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' || r == '.' {
 			return r
 		}
 		return '_'
 	}
 
-	safeService := strings.Map(safeFunc, serviceName)
-	safeSLO := strings.Map(safeFunc, sloName)
+	safeService := strings.Map(safeFunc, baseService)
+	safeSLO := strings.Map(safeFunc, baseSLO)
+
+	// Apply length limits (max 100 chars each, plus dash and extension)
+	if len(safeService) > 100 {
+		safeService = safeService[:100]
+	}
+	if len(safeSLO) > 100 {
+		safeSLO = safeSLO[:100]
+	}
+
 	return fmt.Sprintf("%s-%s", safeService, safeSLO)
 }
 
@@ -225,7 +270,32 @@ func (h *SLOHandler) createZipArchive(files map[string][]byte) ([]byte, error) {
 	zipWriter := zip.NewWriter(&buf)
 
 	for filename, content := range files {
-		writer, err := zipWriter.Create(filename)
+		// Sanitize filename for ZIP
+		cleanFilename := filepath.Clean(filename)
+		baseFilename := filepath.Base(cleanFilename)
+
+		// Normalize Unicode
+		baseFilename = norm.NFC.String(baseFilename)
+
+		// Remove any path separators to ensure relative paths only
+		safeFilename := strings.Map(func(r rune) rune {
+			if r == 0 || r == '/' || r == '\\' {
+				return '_'
+			}
+			return r
+		}, baseFilename)
+
+		// Validate filename
+		if safeFilename == "" || safeFilename == "." || safeFilename == ".." {
+			continue // Skip invalid filenames
+		}
+
+		// Ensure filename is reasonable length
+		if len(safeFilename) > 255 {
+			safeFilename = safeFilename[:255]
+		}
+
+		writer, err := zipWriter.Create(safeFilename)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create file in zip: %w", err)
 		}

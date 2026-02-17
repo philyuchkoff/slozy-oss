@@ -100,6 +100,24 @@ func (h *TemplateHandler) loadTemplates() ([]map[string]interface{}, error) {
 
 // loadTemplateFile loads a single template file
 func (h *TemplateHandler) loadTemplateFile(filePath string) (map[string]interface{}, error) {
+	// Validate path is within templates directory
+	cleanPath := filepath.Clean(filePath)
+	resolvedPath, err := filepath.EvalSymlinks(h.templatesDir)
+	if err != nil {
+		// If we can't resolve symlinks, continue with cleaned path
+		resolvedPath = filepath.Clean(h.templatesDir)
+	}
+
+	// Check if the file path is within the templates directory
+	if !strings.HasPrefix(cleanPath, resolvedPath) {
+		return nil, fmt.Errorf("attempted to access file outside templates directory: %s", filePath)
+	}
+
+	// Ensure the file has .yaml extension
+	if !strings.HasSuffix(cleanPath, ".yaml") {
+		return nil, fmt.Errorf("only .yaml files are allowed")
+	}
+
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read template file: %w", err)

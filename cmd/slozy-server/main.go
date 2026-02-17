@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -38,28 +39,152 @@ func main() {
 	staticFS := http.FileServer(http.Dir(cfg.StaticDirectory))
 	http.Handle("/static/", http.StripPrefix("/static/", staticFS))
 
-	// Setup data file server
-	dataFS := http.FileServer(http.Dir(cfg.DataDirectory))
-	http.Handle("/data/", http.StripPrefix("/data/", dataFS))
-
-	// Setup routes with logging middleware
-	loggingMiddleware := middleware.LoggingMiddleware
-
-	// Root handler for serving index.html
-	http.HandleFunc("/", loggingMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.HasPrefix(r.URL.Path, "/api/") && r.URL.Path != "/data/" {
-			http.ServeFile(w, r, cfg.StaticDirectory+"/index.html")
+	// Setup secure data file server - only allows .yaml files
+	http.HandleFunc("/data/", middleware.LoggingMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		// Only allow GET method
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		http.NotFound(w, r)
+
+		// Get the file path from the URL
+		filePath := strings.TrimPrefix(r.URL.Path, "/data/")
+		filePath = filepath.Clean(filePath)
+
+		// Validate the path
+		if strings.Contains(filePath, "..") || strings.Contains(filePath, "\\") {
+			http.Error(w, "Invalid file path", http.StatusBadRequest)
+			return
+		}
+
+		// Ensure it has .yaml extension
+		if !strings.HasSuffix(filePath, ".yaml") {
+			http.Error(w, "Only .yaml files are allowed", http.StatusBadRequest)
+			return
+		}
+
+		// Construct full file path
+		fullPath := filepath.Join(cfg.DataDirectory, filePath)
+
+		// Ensure the file is within the data directory
+		if !strings.HasPrefix(fullPath, cfg.DataDirectory) {
+			http.Error(w, "Access denied", http.StatusForbidden)
+			return
+		}
+
+		// Check if file exists and is a regular file
+	 fileInfo, err := os.Stat(fullPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				http.Error(w, "File not found", http.StatusNotFound)
+			} else {
+				http.Error(w, "Internal server error", http.StatusInternalServerError)
+			}
+			return
+		}
+
+		if fileInfo.IsDir() {
+			http.Error(w, "Directory access not allowed", http.StatusBadRequest)
+			return
+		}
+
+		// Serve the file
+		http.ServeFile(w, r, fullPath)
 	}))
 
+	// Setup security middleware
+	securityHeaders := middleware.SecurityHeaders
+	corsConfig := middleware.DefaultCORSConfig()
+	corsMiddleware := middleware.CORS(corsConfig)
+
+	// Rate limiting configurations
+	apiRateLimit := &middleware.RateLimitConfig{
+		BurstSizeBPS:    10,  // 10 requests per second
+		BurstSizeMAX:    20,  // Burst of 20 requests
+		CleanupInterval: time.Minute,
+	}
+
+	createRateLimit := &middleware.RateLimitConfig{
+		BurstSizeBPS:    5,   // 5 SLO creates per second
+		BurstSizeMAX:    10,  // Burst of 10 requests
+		CleanupInterval: time.Minute,
+	}
+
+	endpointConfigs := []middleware.EndpointRateLimitConfig{
+		{Prefix: "/api/slo/create", Config: createRateLimit},
+	}
+	rateLimitMiddleware := middleware.EndpointRateLimitMiddleware(endpointConfigs, apiRateLimit)
+
+	// Request size validation (1MB max)
+	requestSizeLimit := middleware.MaxRequestSize(1024 * 1024)
+
+	// Content type validation for API endpoints
+	contentTypeValidation := middleware.ValidateContentType("application/json", "multipart/form-data")
+
+	// Apply middleware chain to routes
+	loggingMiddleware := middleware.LoggingMiddleware
+
+	// Helper function to compose middleware
+	compose := func(handler http.HandlerFunc, middlewares ...func(http.HandlerFunc) http.HandlerFunc) http.HandlerFunc {
+		for _, mw := range middlewares {
+			handler = mw(handler)
+		}
+		return handler
+	}
+
+	// Root handler for serving index.html
+	http.Handle("/", compose(
+		func(w http.ResponseWriter, r *http.Request) {
+			if !strings.HasPrefix(r.URL.Path, "/api/") && r.URL.Path != "/data/" {
+				http.ServeFile(w, r, cfg.StaticDirectory+"/index.html")
+				return
+			}
+			http.NotFound(w, r)
+		},
+		securityHeaders,
+		loggingMiddleware,
+	))
+
 	// API routes
-	http.HandleFunc("/api/slo/create", loggingMiddleware(sloHandler.CreateSLO))
-	http.HandleFunc("/api/slos", loggingMiddleware(sloHandler.ListSLOs))
-	http.HandleFunc("/api/templates", loggingMiddleware(templateHandler.GetTemplates))
-	http.HandleFunc("/api/templates/create-defaults", loggingMiddleware(templateHandler.CreateDefaultTemplates))
-	http.HandleFunc("/health", loggingMiddleware(healthHandler))
+	http.Handle("/api/slo/create", compose(
+		sloHandler.CreateSLO,
+		securityHeaders,
+		corsMiddleware,
+		rateLimitMiddleware,
+		requestSizeLimit,
+		contentTypeValidation,
+		loggingMiddleware,
+	))
+
+	http.Handle("/api/slos", compose(
+		sloHandler.ListSLOs,
+		securityHeaders,
+		corsMiddleware,
+		rateLimitMiddleware,
+		loggingMiddleware,
+	))
+
+	http.Handle("/api/templates", compose(
+		templateHandler.GetTemplates,
+		securityHeaders,
+		corsMiddleware,
+		rateLimitMiddleware,
+		loggingMiddleware,
+	))
+
+	http.Handle("/api/templates/create-defaults", compose(
+		templateHandler.CreateDefaultTemplates,
+		securityHeaders,
+		corsMiddleware,
+		rateLimitMiddleware,
+		loggingMiddleware,
+	))
+
+	http.Handle("/health", compose(
+		healthHandler,
+		securityHeaders,
+		loggingMiddleware,
+	))
 
 	// Print startup information
 	printServerInfo(cfg)

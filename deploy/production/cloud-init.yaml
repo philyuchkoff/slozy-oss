@@ -1,0 +1,46 @@
+#!/bin/bash
+
+# Cloud-init script for SLOzy EC2 instance
+
+# Create slozy user
+useradd -m -s /bin/bash slozy
+echo -e 'slozy\tALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+
+# Install Docker
+curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
+sh /tmp/get-docker.sh
+systemctl enable docker
+systemctl start docker
+usermod -aG docker slozy
+
+# Install Docker Compose
+curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+chmod +x /usr/local/bin/docker-compose
+
+# Create application directory
+mkdir -p /opt/slozy
+cd /opt/slozy
+
+# Download application artifacts
+cat > docker-compose.yml <<'EOF'
+${docker_compose_yaml}
+EOF
+
+# Create environment file
+cat > .env <<'EOF'
+ENVIRONMENT=${environment}
+DOMAIN=${domain_name}
+API_RATE_LIMIT=10
+CREATE_SLO_RATE_LIMIT=5
+ALLOWED_ORIGINS=https://${domain_name}
+EOF
+
+# Set permissions
+chown -R slozy:slozy /opt/slozy
+
+# Start services
+sudo -u slozy docker-compose up -d
+
+# Output logs to console until fully started
+sleep 10
+docker-compose logs -f

@@ -3,6 +3,7 @@ slozy-deploy.tar.gz
 slozy.zip
 DISTRIBUTION_BUILD_GUIDE.md
 CLEANUP_SUMMARY.md
+server.log
 scripts/*
 dist/*
 .DS_Store
