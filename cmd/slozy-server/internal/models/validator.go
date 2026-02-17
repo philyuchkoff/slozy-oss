@@ -1,6 +1,9 @@
 package models
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 // Validator handles SLO validation
 type Validator struct{}
@@ -114,7 +117,7 @@ func (v *Validator) validateAlerting(alerting AlertingConfig) *ValidationError {
 		for i, br := range alerting.BurnRateThresholds {
 			if br.Rate <= 0 {
 				return &ValidationError{
-					Field:   "alerting.burnRateThresholds[" + string(i) + "].rate",
+					Field:   fmt.Sprintf("alerting.burnRateThresholds[%d].rate", i),
 					Message: "Burn rate must be greater than 0",
 				}
 			}
@@ -128,7 +131,7 @@ func (v *Validator) validateAlerting(alerting AlertingConfig) *ValidationError {
 
 				if !validSeverities[br.Severity] {
 					return &ValidationError{
-						Field:   "alerting.burnRateThresholds[" + string(i) + "].severity",
+						Field:   fmt.Sprintf("alerting.burnRateThresholds[%d].severity", i),
 						Message: "Severity must be one of: warning, critical, info",
 					}
 				}
