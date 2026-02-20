@@ -1,11 +1,17 @@
 slozy
 slozy-deploy.tar.gz
 slozy.zip
+create_github_release.sh
 DISTRIBUTION_BUILD_GUIDE.md
 CLEANUP_SUMMARY.md
+CHANGELOG_SECURITY.md
+COMMIT_MESSAGE.md
+commit-messages.txt
+RELEASE-*.md
 server.log
 scripts/*
 dist/*
+distr.sh
 .DS_Store
 .AppleDouble
 .LSOverride
