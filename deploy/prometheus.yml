@@ -1,0 +1,39 @@
+# Prometheus configuration for monitoring SLOzy
+# Add this to your prometheus.yml file
+
+scrape_configs:
+  # SLOzy application metrics
+  - job_name: 'slozy'
+    static_configs:
+      - targets: ['localhost:8080']
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+    # Custom labels
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'slozy-production'
+
+  # Nginx metrics (if using nginx-exporter)
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['localhost:9113']
+    scrape_interval: 15s
+
+  # Node exporter metrics (recommended)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['localhost:9100']
+    scrape_interval: 30s
+
+# Alert rules for SLOzy
+rule_files:
+  - "slozy-alerts.yml"
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['localhost:9093']

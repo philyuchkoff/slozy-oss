@@ -1,0 +1,58 @@
+# Prometheus alert rules for SLOzy service monitoring
+groups:
+  - name: slozy-service-alerts
+    rules:
+      # Service down alert
+      - alert: SLOzyServiceDown
+        expr: up{job="slozy"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: slozy
+        annotations:
+          summary: "SLOzy service is down"
+          description: "SLOzy has been down for more than 1 minute"
+
+      # High error rate
+      - alert: SLOzyHighErrorRate
+        expr: rate(http_requests_total{job="slozy",status!~"2.."}[5m]) / rate(http_requests_total{job="slozy"}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          service: slozy
+        annotations:
+          summary: "SLOzy high error rate"
+          description: "Error rate is {{ $value | humanizePercentage }} for the last 5 minutes"
+
+      # High latency
+      - alert: SLOzyHighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="slozy"}[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          service: slozy
+        annotations:
+          summary: "SLOzy high latency"
+          description: "95th percentile latency is {{ $value }}s"
+
+      # High memory usage
+      - alert: SLOzyHighMemoryUsage
+        expr: (process_resident_memory_bytes{job="slozy"} / 1024 / 1024) > 500
+        for: 10m
+        labels:
+          severity: warning
+          service: slozy
+        annotations:
+          summary: "SLOzy high memory usage"
+          description: "Memory usage is {{ $value }}MB"
+
+      # Disk space running low
+      - alert: SLOzyLowDiskSpace
+        expr: (node_filesystem_avail_bytes{mountpoint="/opt"} / node_filesystem_size_bytes{mountpoint="/opt"}) < 0.1
+        for: 5m
+        labels:
+          severity: critical
+          service: slozy
+        annotations:
+          summary: "SLOzy low disk space"
+          description: "Only {{ $value | humanizePercentage }} disk space remaining"

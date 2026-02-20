@@ -1,0 +1,58 @@
+[Unit]
+Description=SLOzy - SLO Management Service
+Documentation=https://github.com/philyuchkoff/slozy
+After=network.target
+Wants=network.target
+
+# Service dependencies
+Requires=network-online.target
+After=network-online.target
+
+[Service]
+# User and group
+User=slozy
+Group=slozy
+
+# Binary path
+ExecStart=/opt/slozy/bin/slozy-server
+
+# Working directory
+WorkingDirectory=/opt/slozy
+
+# Environment file
+EnvironmentFile=/opt/slozy/.env
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# Restart policy
+Restart=always
+RestartSec=10
+
+# Process management
+Type=simple
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/slozy/data /opt/slozy/logs
+
+# Namespace restrictions for compatibility
+# Remove these if you encounter namespace-related errors
+# PrivateDevices=true
+# ProtectKernelTunables=true
+# ProtectControlGroups=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=slozy
+
+[Install]
+WantedBy=multi-user.target

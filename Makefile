@@ -1,11 +1,22 @@
-.PHONY: build run dev test clean deps lint docker-build docker-run install web generate-sample
+.PHONY: build run dev test clean deps lint docker-build docker-run install web generate-sample build-prod deploy-prod setup-prod
 
-BINARY_NAME=slozy
-VERSION=0.1.0
+BINARY_NAME=slozy-server
+VERSION=$(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+LDFLAGS=-ldflags="-X main.Version=$(VERSION) -s -w"
 
+# Build targets
 build:
 	@echo "Building SLOzy..."
-	go build -o bin/$(BINARY_NAME) ./cmd/slozy-server
+	@mkdir -p bin
+	go build $(LDFLAGS) -o bin/$(BINARY_NAME) ./cmd/slozy-server
+
+build-prod:
+	@echo "Building SLOzy for production..."
+	@mkdir -p bin
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o bin/$(BINARY_NAME)-linux-amd64 ./cmd/slozy-server
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o bin/$(BINARY_NAME)-linux-arm64 ./cmd/slozy-server
+	@echo "✅ Production builds created:"
+	@ls -lh bin/$(BINARY_NAME)-linux-*
 
 run:
 	@echo "Starting SLOzy..."
@@ -60,3 +71,45 @@ generate-sample:
 			"metricSource": "prometheus",
 			"metricQuery": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{job=\"user-api\"}[5m]))"
 		}'
+
+# Production deployment targets
+setup-prod:
+	@echo "Setting up production environment..."
+	@echo "Creating directories..."
+	sudo mkdir -p /opt/slozy/{bin,data,templates,static,logs}
+	sudo groupadd -f slozy 2>/dev/null || true
+	sudo useradd -r -s /bin/false -g slozy -d /opt/slozy slozy 2>/dev/null || true
+	sudo chown -R slozy:slozy /opt/slozy
+	@echo "✅ Production directories created"
+
+deploy-prod: setup-prod build-prod
+	@echo "Deploying SLOzy to production..."
+	sudo cp bin/$(BINARY_NAME)-linux-amd64 /opt/slozy/bin/slozy-server
+	sudo chmod +x /opt/slozy/bin/slozy-server
+	sudo -u slozy cp -r static/* /opt/slozy/static/
+	sudo -u slozy cp -r templates/* /opt/slozy/templates/
+	sudo cp systemd/slozy.service /etc/systemd/system/
+	sudo systemctl daemon-reload
+	sudo systemctl enable slozy
+	@echo "✅ SLOzy deployed successfully!"
+	@echo "Run 'systemctl start slozy' to start the service"
+
+service-install:
+	@echo "Installing systemd service..."
+	sudo cp systemd/slozy.service /etc/systemd/system/
+	sudo systemctl daemon-reload
+	sudo systemctl enable slozy
+	@echo "✅ Service installed"
+
+service-start:
+	sudo systemctl start slozy
+	sudo systemctl status slozy
+
+service-stop:
+	sudo systemctl stop slozy
+
+service-logs:
+	sudo journalctl -u slozy -f
+
+service-restart:
+	sudo systemctl restart slozy

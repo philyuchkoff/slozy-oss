@@ -23,36 +23,67 @@ A tool for creating and managing Service Level Objectives (SLOs) with comprehens
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Go 1.21 or later
-- No external dependencies required
+- Go 1.22 or later
+- No external dependencies required for development
+- systemd and Nginx for production deployment
 
 ### Installation
 
-#### From Git
+#### Development Installation
+
 ```bash
+# Clone the repository
 git clone https://github.com/philyuchkoff/slozy.git
 cd slozy
-```
 
-#### Basic Installation
-
-```bash
+# Build the application
 make build
+
+# Run in development mode
+make run
 ```
 
-This creates binary in `bin/slozy`.
+#### Production Deployment
 
-#### Run Server
+For production deployment, please follow the comprehensive [Deployment Guide](docs/deployment.md).
+
+Quick deployment using the automated script:
 
 ```bash
-make run
-# Or directly
-./bin/slozy
+# Clone the repository
+git clone https://github.com/philyuchkoff/slozy.git
+cd slozy
+
+# Run the installation script (requires sudo)
+sudo ./deploy/install.sh
+
+# Configure your environment
+sudo nano /opt/slozy/.env
+
+# Start the service
+sudo systemctl start slozy
+
+# Check status
+sudo systemctl status slozy
+```
+
+#### Docker Deployment
+
+```bash
+# Build the image
+docker build -t slozy .
+
+# Run with persistent storage
+docker run -d \
+  --name slozy \
+  -p 8080:8080 \
+  -v $(pwd)/data:/app/data \
+  slozy
 ```
 
 #### Access Web Interface
 
-Open your browser to: http://localhost:8080
+Open your browser to: http://localhost:8080 (or your configured host/port)
 
 ## 📖 Usage
 

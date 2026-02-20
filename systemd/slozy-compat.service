@@ -1,0 +1,42 @@
+[Unit]
+Description=SLOzy - SLO Management Service (Compatible Mode)
+Documentation=https://github.com/philyuchkoff/slozy
+After=network.target
+Wants=network.target
+
+[Service]
+# User and group
+User=slozy
+Group=slozy
+
+# Binary path
+ExecStart=/opt/slozy/bin/slozy-server
+
+# Working directory
+WorkingDirectory=/opt/slozy
+
+# Environment file
+EnvironmentFile=/opt/slozy/.env
+
+# Basic resource limits
+LimitNOFILE=65536
+
+# Restart policy
+Restart=always
+RestartSec=10
+
+# Process management
+Type=simple
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Minimal security settings (compatible with older systems)
+NoNewPrivileges=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=slozy
+
+[Install]
+WantedBy=multi-user.target
