@@ -1,0 +1,93 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.22'
+
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Download dependencies
+      run: make deps
+
+    - name: Run tests
+      run: make test
+
+    - name: Create release archive
+      env:
+        VERSION: ${{ github.ref_name }}
+      run: |
+        chmod +x build-release.sh
+        make release-archive
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: slozy-${{ github.ref_name }}.zip
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+        name: SLOzy ${{ github.ref_name }}
+        body: |
+          ## 🚀 Release ${{ github.ref_name }}
+
+          This release includes a ready-to-deploy archive for CentOS/RHEL systems.
+
+          ### Quick Installation on CentOS/RHEL
+
+          ```bash
+          # Download the release
+          wget https://github.com/philyuchkoff/slozy/releases/download/${{ github.ref_name }}/slozy-${{ github.ref_name }}.zip
+
+          # Extract and install
+          unzip slozy-${{ github.ref_name }}.zip
+          cd release-${{ github.ref_name }}
+          sudo ./scripts/install-centos.sh
+          ```
+
+          ### What's Inside
+
+          - Pre-built binaries for amd64 and arm64 architectures
+          - All necessary static assets and templates
+          - Automated installation script for CentOS/RHEL
+          - Systemd service configuration
+
+          ### Verification
+
+          After installation, verify the deployment:
+
+          ```bash
+          # Check service status
+          sudo systemctl status slozy
+
+          # View logs
+          sudo journalctl -u slozy -f
+
+          # Test the application
+          curl http://localhost:8080/health
+          ```
+
+          For detailed information, see the [Deployment Guide](https://github.com/philyuchkoff/slozy/blob/main/docs/deployment.md).
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
