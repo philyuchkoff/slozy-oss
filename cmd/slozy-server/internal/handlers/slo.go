@@ -92,7 +92,6 @@ func (h *SLOHandler) CreateSLO(w http.ResponseWriter, r *http.Request) {
 	// Send ZIP archive
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Expose-Headers", "Content-Disposition")
 
 	if _, err := w.Write(zipData); err != nil {
@@ -314,7 +313,6 @@ func (h *SLOHandler) createZipArchive(files map[string][]byte) ([]byte, error) {
 // respondWithError sends error response
 func respondWithError(w http.ResponseWriter, message string, statusCode int) {
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.WriteHeader(statusCode)
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": false,
@@ -325,7 +323,6 @@ func respondWithError(w http.ResponseWriter, message string, statusCode int) {
 // respondWithValidationErrors sends validation error response
 func respondWithValidationErrors(w http.ResponseWriter, errors []string) {
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.WriteHeader(http.StatusBadRequest)
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": false,
@@ -341,7 +338,6 @@ func (h *SLOHandler) ListSLOs(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			w.Header().Set("Content-Type", "application/json")
-			w.Header().Set("Access-Control-Allow-Origin", "*")
 			json.NewEncoder(w).Encode(map[string]interface{}{"slos": []string{}})
 			return
 		}
@@ -362,7 +358,6 @@ func (h *SLOHandler) ListSLOs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 	json.NewEncoder(w).Encode(map[string]interface{}{"slos": slos})
 }
 

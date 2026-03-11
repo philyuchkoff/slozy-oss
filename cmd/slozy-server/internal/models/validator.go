@@ -41,6 +41,11 @@ func (v *Validator) Validate(slo SLO) []ValidationError {
 		})
 	}
 
+	// Validate Prometheus query for injection prevention
+	if err := v.validatePrometheusQuery(slo.MetricQuery); err != nil {
+		errors = append(errors, *err)
+	}
+
 	if err := v.validateIndicatorType(slo.IndicatorType); err != nil {
 		errors = append(errors, *err)
 	}
@@ -64,6 +69,65 @@ func (v *Validator) Validate(slo SLO) []ValidationError {
 	}
 
 	return errors
+}
+
+// validatePrometheusQuery validates Prometheus query for injection prevention
+func (v *Validator) validatePrometheusQuery(query string) *ValidationError {
+	// Define allowed characters in PromQL
+	// Letters, numbers, underscores, spaces, and commonly used PromQL symbols
+	allowedPattern := []byte{
+		'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+		'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+		'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+		'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+		'0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+		'_', '-', '+', '-', '*', '/', '=', '!', '<', '>', '(', ')',
+		'[', ']', '{', '}', ':', '.', ',', ' ', '\t', '\n',
+		'"', '\'', '$', '|', '^',
+	}
+
+	// Create a set of allowed characters for fast lookup
+	allowed := make(map[byte]bool)
+	for _, c := range allowedPattern {
+		allowed[c] = true
+	}
+
+	// Check each character in query
+	for i, char := range []byte(query) {
+		if !allowed[char] {
+			return &ValidationError{
+				Field:   "Metric query",
+				Message: fmt.Sprintf("Invalid character at position %d: '%c'. Only standard PromQL characters are allowed", i, char),
+			}
+		}
+	}
+
+	// Check for dangerous patterns
+	dangerousPatterns := []string{
+		"exec", "system", "shell", "cmd", "powershell", "bash", "sh",
+		"eval", "import", "require", "function", "=>", "{", "}",
+		"`", ";", "&&", "||", ">", ">>", "<", "<<",
+	}
+
+	queryLower := strings.ToLower(query)
+	for _, pattern := range dangerousPatterns {
+		if strings.Contains(queryLower, pattern) {
+			return &ValidationError{
+				Field:   "Metric query",
+				Message: fmt.Sprintf("Dangerous pattern detected: '%s'. This pattern is not allowed in Prometheus queries", pattern),
+			}
+		}
+	}
+
+	// Additional check: ensure no command substitution
+	if strings.Contains(query, "$(") || strings.Contains(query, "`") {
+		return &ValidationError{
+			Field:   "Metric query",
+			Message: "Command substitution is not allowed in Prometheus queries",
+		}
+	}
+
+	return nil
 }
 
 // ValidateLegacy validates SLO and returns string messages (for backward compatibility)

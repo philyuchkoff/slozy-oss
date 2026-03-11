@@ -12,7 +12,7 @@ func SecurityHeaders(next http.HandlerFunc) http.HandlerFunc {
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
-		w.Header().Set("Content-Security-Policy", "default-src 'self' 'unsafe-inline' 'unsafe-eval'; img-src 'self' data: https:; font-src 'self' data:; style-src 'self' 'unsafe-inline' https:; script-src 'self' 'unsafe-inline' https:; connect-src 'self'")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data: https:; font-src 'self' data:; style-src 'self' https:; script-src 'self' https:; connect-src 'self'")
 
 		// HSTS (only on HTTPS)
 		if r.URL.Scheme == "https" || strings.HasPrefix(r.Header.Get("X-Forwarded-Proto"), "https") {

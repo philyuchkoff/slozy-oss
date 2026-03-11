@@ -35,7 +35,6 @@ func (h *TemplateHandler) GetTemplates(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 	json.NewEncoder(w).Encode(map[string]interface{}{"templates": templates})
 }
 
@@ -48,7 +47,6 @@ func (h *TemplateHandler) CreateDefaultTemplates(w http.ResponseWriter, r *http.
 
 	if err := h.copyExampleTemplates(); err != nil {
 		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"success": false,
@@ -58,7 +56,6 @@ func (h *TemplateHandler) CreateDefaultTemplates(w http.ResponseWriter, r *http.
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
 		"message": "Default templates created successfully",

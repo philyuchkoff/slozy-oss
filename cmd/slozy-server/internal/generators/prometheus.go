@@ -2,6 +2,7 @@ package generators
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/philyuchkoff/slozy/cmd/slozy-server/internal/models"
@@ -120,13 +121,16 @@ func (g *PrometheusGenerator) buildCriticalAlertRule(slo models.SLO, br models.B
 
 // buildExpression creates Prometheus expression based on indicator type
 func (g *PrometheusGenerator) buildExpression(slo models.SLO, targetValue string, rate float64) string {
+	// Sanitize the metric query as a defense-in-depth measure
+	sanitizedQuery := g.sanitizeQuery(slo.MetricQuery)
+
 	switch slo.IndicatorType {
 	case "latency":
 		return fmt.Sprintf(`(
                 (1 - (clamp_min(%s, 0) / %s))
                 / (1 - %s)
             ) > %.1f`,
-			slo.MetricQuery,
+			sanitizedQuery,
 			slo.Threshold,
 			targetValue,
 			rate)
@@ -135,8 +139,23 @@ func (g *PrometheusGenerator) buildExpression(slo models.SLO, targetValue string
                 (1 - (clamp_min(%s, 0)))
                 / (1 - %s)
             ) > %.1f`,
-			slo.MetricQuery,
+			sanitizedQuery,
 			targetValue,
 			rate)
 	}
+}
+
+// sanitizeQuery sanitizes a Prometheus metric query for safe inclusion in expressions
+func (g *PrometheusGenerator) sanitizeQuery(query string) string {
+	// Remove any potentially dangerous characters that weren't caught by validation
+	// This is a defense-in-depth measure
+	dangerousChars := regexp.MustCompile(`[;&|` + "`" + `]`)
+	sanitized := dangerousChars.ReplaceAllString(query, "")
+
+	// Ensure query is properly quoted if it contains spaces
+	if strings.Contains(sanitized, " ") && !strings.HasPrefix(sanitized, `"`) {
+		sanitized = `"` + sanitized + `"`
+	}
+
+	return sanitized
 }
