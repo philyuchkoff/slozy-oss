@@ -1,4 +1,4 @@
-.PHONY: build run dev test clean deps lint docker-build docker-run install web generate-sample build-prod deploy-prod setup-prod
+.PHONY: build run dev test clean deps lint docker-build docker-run install web generate-sample build-prod deploy-prod setup-prod release-archive clean-release
 
 BINARY_NAME=slozy-server
 VERSION=$(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -113,3 +113,19 @@ service-logs:
 
 service-restart:
 	sudo systemctl restart slozy
+
+# Release management
+release-archive:
+	@echo "Creating release archive..."
+	@./build-release.sh $(VERSION)
+	@echo "✅ Release archive created: slozy-$(VERSION).zip"
+
+test-release:
+	@echo "Testing release archive..."
+	@./scripts/test-release.sh slozy-$(VERSION).zip
+
+clean-release:
+	@echo "Cleaning release files..."
+	@rm -f slozy-*.zip
+	@rm -rf release-*
+	@rm -rf test-install-*
