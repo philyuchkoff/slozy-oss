@@ -7,11 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
-<<<<<<< HEAD
-	"path/filepath"
-=======
 	"os/signal"
->>>>>>> e090066 (feat: graceful shutdown implemented)
 	"strings"
 	"syscall"
 	"time"
@@ -40,64 +36,6 @@ func main() {
 	// Initialize handlers
 	sloHandler := handlers.NewSLOHandler(cfg.DataDirectory)
 	templateHandler := handlers.NewTemplateHandler(cfg.TemplatesDirectory)
-
-<<<<<<< HEAD
-	// Setup static file server
-	staticFS := http.FileServer(http.Dir(cfg.StaticDirectory))
-	http.Handle("/static/", http.StripPrefix("/static/", staticFS))
-
-	// Setup secure data file server - only allows .yaml files
-	http.HandleFunc("/data/", middleware.LoggingMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		// Only allow GET method
-		if r.Method != http.MethodGet {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		// Get the file path from the URL
-		filePath := strings.TrimPrefix(r.URL.Path, "/data/")
-		filePath = filepath.Clean(filePath)
-
-		// Validate the path
-		if strings.Contains(filePath, "..") || strings.Contains(filePath, "\\") {
-			http.Error(w, "Invalid file path", http.StatusBadRequest)
-			return
-		}
-
-		// Ensure it has .yaml extension
-		if !strings.HasSuffix(filePath, ".yaml") {
-			http.Error(w, "Only .yaml files are allowed", http.StatusBadRequest)
-			return
-		}
-
-		// Construct full file path
-		fullPath := filepath.Join(cfg.DataDirectory, filePath)
-
-		// Ensure the file is within the data directory
-		if !strings.HasPrefix(fullPath, cfg.DataDirectory) {
-			http.Error(w, "Access denied", http.StatusForbidden)
-			return
-		}
-
-		// Check if file exists and is a regular file
-	 fileInfo, err := os.Stat(fullPath)
-		if err != nil {
-			if os.IsNotExist(err) {
-				http.Error(w, "File not found", http.StatusNotFound)
-			} else {
-				http.Error(w, "Internal server error", http.StatusInternalServerError)
-			}
-			return
-		}
-
-		if fileInfo.IsDir() {
-			http.Error(w, "Directory access not allowed", http.StatusBadRequest)
-			return
-		}
-
-		// Serve the file
-		http.ServeFile(w, r, fullPath)
-	}))
 
 	// Setup security middleware
 	securityHeaders := middleware.SecurityHeaders
@@ -139,8 +77,11 @@ func main() {
 		return handler
 	}
 
+	// Create router
+	mux := http.NewServeMux()
+
 	// Root handler for serving index.html
-	http.Handle("/", compose(
+	mux.Handle("/", compose(
 		func(w http.ResponseWriter, r *http.Request) {
 			if !strings.HasPrefix(r.URL.Path, "/api/") && r.URL.Path != "/data/" {
 				http.ServeFile(w, r, cfg.StaticDirectory+"/index.html")
@@ -152,8 +93,57 @@ func main() {
 		loggingMiddleware,
 	))
 
-	// API routes
-	http.Handle("/api/slo/create", compose(
+	// Setup static file server
+	staticFS := http.FileServer(http.Dir(cfg.StaticDirectory))
+	mux.Handle("/static/", http.StripPrefix("/static/", compose(
+		func(w http.ResponseWriter, r *http.Request) {
+			staticFS.ServeHTTP(w, r)
+		},
+		securityHeaders,
+	)))
+
+	// Setup secure data file server - only allows .yaml files
+	mux.HandleFunc("/data/", compose(
+		func(w http.ResponseWriter, r *http.Request) {
+			// Only allow GET method
+			if r.Method != http.MethodGet {
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+				return
+			}
+
+			// Get the file path from the URL
+			filePath := strings.TrimPrefix(r.URL.Path, "/data/")
+
+			// Validate the path
+			if strings.Contains(filePath, "..") || strings.Contains(filePath, "\\") {
+				http.Error(w, "Invalid file path", http.StatusBadRequest)
+				return
+			}
+
+			// Ensure it has .yaml extension
+			if !strings.HasSuffix(filePath, ".yaml") {
+				http.Error(w, "Only .yaml files are allowed", http.StatusBadRequest)
+				return
+			}
+
+			// Construct full file path avoiding directory traversal
+			fullPath := cfg.DataDirectory + "/" + filePath
+
+			// Check if file exists
+			if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+				http.Error(w, "File not found", http.StatusNotFound)
+				return
+			}
+
+			// Serve the file
+			http.ServeFile(w, r, fullPath)
+		},
+		securityHeaders,
+		loggingMiddleware,
+	))
+
+	// API routes with comprehensive middleware
+	mux.Handle("/api/slo/create", compose(
 		sloHandler.CreateSLO,
 		securityHeaders,
 		corsMiddleware,
@@ -163,7 +153,7 @@ func main() {
 		loggingMiddleware,
 	))
 
-	http.Handle("/api/slos", compose(
+	mux.Handle("/api/slos", compose(
 		sloHandler.ListSLOs,
 		securityHeaders,
 		corsMiddleware,
@@ -171,7 +161,7 @@ func main() {
 		loggingMiddleware,
 	))
 
-	http.Handle("/api/templates", compose(
+	mux.Handle("/api/templates", compose(
 		templateHandler.GetTemplates,
 		securityHeaders,
 		corsMiddleware,
@@ -179,7 +169,7 @@ func main() {
 		loggingMiddleware,
 	))
 
-	http.Handle("/api/templates/create-defaults", compose(
+	mux.Handle("/api/templates/create-defaults", compose(
 		templateHandler.CreateDefaultTemplates,
 		securityHeaders,
 		corsMiddleware,
@@ -187,39 +177,11 @@ func main() {
 		loggingMiddleware,
 	))
 
-	http.Handle("/health", compose(
+	mux.Handle("/health", compose(
 		healthHandler,
 		securityHeaders,
 		loggingMiddleware,
 	))
-=======
-	// Create router with logging middleware
-	mux := http.NewServeMux()
-	loggingMiddleware := middleware.LoggingMiddleware
-
-	// Root handler for serving index.html
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if !strings.HasPrefix(r.URL.Path, "/api/") && r.URL.Path != "/data/" {
-			http.ServeFile(w, r, cfg.StaticDirectory+"/index.html")
-			return
-		}
-		http.NotFound(w, r)
-	})
-
-	// API routes with logging middleware applied
-	mux.HandleFunc("/api/slo/create", loggingMiddleware(sloHandler.CreateSLO))
-	mux.HandleFunc("/api/slos", loggingMiddleware(sloHandler.ListSLOs))
-	mux.HandleFunc("/api/templates", loggingMiddleware(templateHandler.GetTemplates))
-	mux.HandleFunc("/api/templates/create-defaults", loggingMiddleware(templateHandler.CreateDefaultTemplates))
-	mux.HandleFunc("/health", loggingMiddleware(healthHandler))
-
-	// Setup static file server
-	staticFS := http.FileServer(http.Dir(cfg.StaticDirectory))
-	mux.Handle("/static/", http.StripPrefix("/static/", staticFS))
-
-	// Setup data file server
-	dataFS := http.FileServer(http.Dir(cfg.DataDirectory))
-	mux.Handle("/data/", http.StripPrefix("/data/", dataFS))
 
 	// Create server with timeouts
 	server := &http.Server{
@@ -229,7 +191,6 @@ func main() {
 		WriteTimeout: 15 * time.Second,  // Maximum time to write response
 		IdleTimeout:  60 * time.Second,  // Maximum time to wait for next request
 	}
->>>>>>> e090066 (feat: graceful shutdown implemented)
 
 	// Print startup information
 	printServerInfo(cfg)
@@ -290,6 +251,12 @@ func printServerInfo(cfg *models.Config) {
 	fmt.Printf("   • README with instructions\n")
 	fmt.Printf("📦 All files are now downloaded as ZIP archive\n")
 	fmt.Printf("📋 Templates loaded from %s/\n", cfg.TemplatesDirectory)
+	fmt.Printf("🛡️  Security features enabled:\n")
+	fmt.Printf("   • Rate limiting (5-10 req/s for API)\n")
+	fmt.Printf("   • Request size limit (1MB)\n")
+	fmt.Printf("   • CORS headers\n")
+	fmt.Printf("   • Content type validation\n")
+	fmt.Printf("   • Directory traversal protection\n")
 	fmt.Println("\nPress Ctrl+C to stop")
 }
 

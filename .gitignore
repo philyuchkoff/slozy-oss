@@ -6,6 +6,7 @@ DISTRIBUTION_BUILD_GUIDE.md
 CLEANUP_SUMMARY.md
 CHANGELOG_SECURITY.md
 COMMIT_MESSAGE.md
+SRE.md
 commit-messages.txt
 RELEASE-*.md
 server.log
@@ -19,9 +20,10 @@ distr.sh
 .Spotlight-V100
 .Trashes
 .vscode/*
+.claude/*
 *~
 *.swp
 *.bak
 *.env
 *.log
-SRE.md
+
