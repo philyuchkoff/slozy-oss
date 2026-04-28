@@ -1,13 +1,19 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+<<<<<<< HEAD
 	"path/filepath"
+=======
+	"os/signal"
+>>>>>>> e090066 (feat: graceful shutdown implemented)
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/philyuchkoff/slozy/cmd/slozy-server/internal/config"
@@ -35,6 +41,7 @@ func main() {
 	sloHandler := handlers.NewSLOHandler(cfg.DataDirectory)
 	templateHandler := handlers.NewTemplateHandler(cfg.TemplatesDirectory)
 
+<<<<<<< HEAD
 	// Setup static file server
 	staticFS := http.FileServer(http.Dir(cfg.StaticDirectory))
 	http.Handle("/static/", http.StripPrefix("/static/", staticFS))
@@ -185,13 +192,70 @@ func main() {
 		securityHeaders,
 		loggingMiddleware,
 	))
+=======
+	// Create router with logging middleware
+	mux := http.NewServeMux()
+	loggingMiddleware := middleware.LoggingMiddleware
+
+	// Root handler for serving index.html
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasPrefix(r.URL.Path, "/api/") && r.URL.Path != "/data/" {
+			http.ServeFile(w, r, cfg.StaticDirectory+"/index.html")
+			return
+		}
+		http.NotFound(w, r)
+	})
+
+	// API routes with logging middleware applied
+	mux.HandleFunc("/api/slo/create", loggingMiddleware(sloHandler.CreateSLO))
+	mux.HandleFunc("/api/slos", loggingMiddleware(sloHandler.ListSLOs))
+	mux.HandleFunc("/api/templates", loggingMiddleware(templateHandler.GetTemplates))
+	mux.HandleFunc("/api/templates/create-defaults", loggingMiddleware(templateHandler.CreateDefaultTemplates))
+	mux.HandleFunc("/health", loggingMiddleware(healthHandler))
+
+	// Setup static file server
+	staticFS := http.FileServer(http.Dir(cfg.StaticDirectory))
+	mux.Handle("/static/", http.StripPrefix("/static/", staticFS))
+
+	// Setup data file server
+	dataFS := http.FileServer(http.Dir(cfg.DataDirectory))
+	mux.Handle("/data/", http.StripPrefix("/data/", dataFS))
+
+	// Create server with timeouts
+	server := &http.Server{
+		Addr:         fmt.Sprintf(":%d", cfg.Port),
+		Handler:      mux,
+		ReadTimeout:  15 * time.Second,  // Maximum time to read request
+		WriteTimeout: 15 * time.Second,  // Maximum time to write response
+		IdleTimeout:  60 * time.Second,  // Maximum time to wait for next request
+	}
+>>>>>>> e090066 (feat: graceful shutdown implemented)
 
 	// Print startup information
 	printServerInfo(cfg)
 
-	// Start server
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port), nil); err != nil {
-		log.Fatal("Server failed:", err)
+	// Start server in goroutine
+	go func() {
+		log.Printf("Server starting on %s", server.Addr)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatal("Server failed:", err)
+		}
+	}()
+
+	// Wait for interrupt signal
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("Shutting down server...")
+
+	// Graceful shutdown with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		log.Printf("Server forced to shutdown: %v", err)
+	} else {
+		log.Println("Server gracefully shutdown")
 	}
 }
 
