@@ -5,6 +5,7 @@ A tool for creating and managing Service Level Objectives (SLOs) with comprehens
 ## ✨ Features
 
 ### Core Features
+
 - 🎯 **SLO Creation** - Define service level objectives with targets
 - 📊 **Multiple Indicators** - Support for latency, availability, throughput
 - 🔔 **Integrated Alerting** - Generate Prometheus rules, AlertManager configs
@@ -14,6 +15,7 @@ A tool for creating and managing Service Level Objectives (SLOs) with comprehens
 - 📋 **Templates** - Pre-built templates for common services
 
 ### Advanced Features
+
 - 🏷️ **Autocompletion** – Smart hints for metrics, teams, owners
 - 📈 **Visualization** – Preview SLO burn rates before saving
 - 🎛 **Multi-file Generation** – All configs packaged in ZIP
@@ -23,6 +25,7 @@ A tool for creating and managing Service Level Objectives (SLOs) with comprehens
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Go 1.22 or later
 - No external dependencies required for development
 - systemd and Nginx for production deployment
@@ -45,26 +48,43 @@ make run
 
 #### Production Deployment
 
-For production deployment, please follow the comprehensive [Deployment Guide](docs/deployment.md).
+##### 📦 Using Distribution Scripts (Recommended)
 
-Quick deployment using the automated script:
+```bash
+# Create distributable package
+./scripts/distribute.sh
+
+# Deploy to remote server
+./scripts/deploy.sh -s user@server.com dist/slozy-v1.4.0-abc123-20260429.zip -b -r
+
+# With custom options
+./scripts/deploy.sh \
+  --server deploy@your-server.com \
+  --path /opt/slozy \
+  --name slozy \
+  --backup \
+  --restart \
+  dist/slozy-v1.4.0-abc123-20260429.zip
+```
+
+##### Manual Deployment
 
 ```bash
 # Clone the repository
 git clone https://github.com/philyuchkoff/slozy.git
 cd slozy
 
-# Run the installation script (requires sudo)
-sudo ./deploy/install.sh
+# Build for production
+make build-prod
 
-# Configure your environment
+# Install and configure
+sudo ./scripts/setup.sh
+
+# Configure environment
 sudo nano /opt/slozy/.env
 
-# Start the service
+# Start service
 sudo systemctl start slozy
-
-# Check status
-sudo systemctl status slozy
 ```
 
 #### Docker Deployment
@@ -83,7 +103,7 @@ docker run -d \
 
 #### Access Web Interface
 
-Open your browser to: http://localhost:8080 (or your configured host/port)
+Open your browser to: <http://localhost:8080> (or your configured host/port)
 
 ## 📖 Usage
 
@@ -91,7 +111,7 @@ Open your browser to: http://localhost:8080 (or your configured host/port)
 
 #### Using Web UI (Recommended)
 
-1. Navigate to http://localhost:8080
+1. Navigate to <http://localhost:8080>
 2. Click "Create SLO"
 3. Fill in service information:
    - Service name and description
@@ -126,6 +146,7 @@ curl -X POST http://localhost:8080/api/slo/create \
 #### Using Built-in Templates
 
 SLOzy includes pre-built templates:
+
 - **Web API** – Latency and availability for HTTP services
 - **Database** – Query latency and availability
 - **Kubernetes** – Infrastructure SLOs
@@ -140,7 +161,7 @@ SLOzy includes pre-built templates:
 
 #### Creating Custom Templates
 
-1. Navigate to http://localhost:8080
+1. Navigate to <http://localhost:8080>
 2. Click "Templates" tab
 3. Click "Create Template"
 4. Fill in template details
@@ -240,6 +261,7 @@ The generated YAML files can be used with any OpenSLO-compatible tool.
 ### 2. Prometheus Rules
 
 Import the generated alert rules into your Prometheus server:
+
 ```bash
 curl -X POST http://localhost:9090/api/v1/rules \
   -H "Content-Type: application/yaml" \
@@ -249,6 +271,7 @@ curl -X POST http://localhost:9090/api/v1/rules \
 ### 3. Grafana Dashboards
 
 Import the JSON dashboard files:
+
 1. Navigate to Grafana
 2. Click "+" → "Import"
 3. Upload the dashboard JSON file
@@ -258,6 +281,7 @@ Import the JSON dashboard files:
 ### 4. AlertManager Configuration
 
 The generated configuration includes:
+
 - Routes for different severity levels
 - Integration with Slack, email, PagerDuty, Telegram
 - Inhibition rules to prevent alert spam
@@ -320,6 +344,7 @@ resource "docker_container" "slozy" {
 ## 🔧 Troubleshooting
 
 ### Build Issues
+
 ```bash
 # Clean build
 make clean && make build
@@ -332,6 +357,7 @@ go version  # Should be 1.21+
 ```
 
 ### Runtime Issues
+
 ```bash
 # Check port usage
 lsof -i :8080
@@ -389,6 +415,7 @@ The project follows Go project layout:
 ## 📄 OpenSLO Compatibility
 
 SLOzy generates fully compliant OpenSLO v1alpha files:
+
 - API version: openslo/v1alpha
 - SLO object with metadata and spec
 - Time windows with rolling/budgeting support
