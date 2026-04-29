@@ -422,6 +422,50 @@ SLOzy generates fully compliant OpenSLO v1alpha files:
 - Indicator configuration based on type
 - Alert policies with burn rate conditions
 
+## 📦 Distribution and Deployment
+
+### Automated Scripts
+
+For easy production deployment:
+
+```bash
+# Create distribution package
+./scripts/distribute.sh
+
+# Deploy to remote server  
+./scripts/deploy.sh -s user@server.com dist/slozy-*.zip -b -r
+
+# Full installation on clean server
+sudo ./scripts/setup.sh full
+```
+
+See [scripts/README.md](scripts/README.md) for detailed instructions.
+
+### Production Features
+
+- ✅ Graceful shutdown with 30s timeout
+- ✅ Configurable rate limiting (5-10 req/s)
+- ✅ Structured JSON logging
+- ✅ Health monitoring endpoint
+- ✅ Security headers and CORS
+- ✅ Prometheus/Grafana integration
+- ✅ Systemd service management
+
+### Configuration
+
+```bash
+# Environment variables
+PORT=8080                         # Server port
+DATA_DIR=/opt/slozy/data           # Data directory
+TEMPLATES_DIR=/opt/slozy/templates   # Templates
+STATIC_DIR=/opt/slozy/static         # Static files
+
+# Alerting (optional)  
+TELEGRAM_BOT_TOKEN=...              # Telegram bot token
+TELEGRAM_CHAT_ID=...               # Chat ID
+LOG_LEVEL=info                      # Logging level
+```
+
 ## 🤝 Contributing
 
 1. Fork the repository
@@ -435,7 +479,6 @@ SLOzy generates fully compliant OpenSLO v1alpha files:
 ## 📜 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
 ## 🙏 Acknowledgments
 
 Built using Go with standard libraries only.
