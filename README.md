@@ -1,6 +1,24 @@
-# 🦥 SLOzy - [SLO made lazy and easy](https://slozy.ru/)
+# 🦥 SLOzy OSS - [SLO made lazy and easy (Open Source)](https://slozy.ru/)
 
-A tool for creating and managing Service Level Objectives (SLOs) with comprehensive alerting support.
+**This is the open-source version of SLOzy. For the commercial version with real-time monitoring, database persistence, and advanced features, see [SLOzy Commercial](https://github.com/philyuchkoff/slozy).**
+
+A tool for creating Service Level Objectives (SLOs) and generating OpenSLO-compliant configuration files.
+
+## ⚠️ Important Notice
+
+**SLOzy OSS is being maintained in minimal maintenance mode.** The commercial version includes:
+
+- ✅ Real-time SLO monitoring (burn rate, error budget visualization)
+- ✅ Database persistence (PostgreSQL + versioning)
+- ✅ Authentication & Authorization (OAuth 2.0 + RBAC)
+- ✅ Prometheus & CloudWatch integration
+- ✅ GitOps workflow (GitHub/GitLab sync)
+- ✅ Anomaly detection & smart recommendations
+- ✅ Advanced dashboards & reporting
+
+**For production use, we recommend SLOzy Commercial.** This OSS version remains free-as-in-beer for those who prefer a simple YAML generator.
+
+---
 
 ## ✨ Features
 
@@ -36,8 +54,8 @@ A tool for creating and managing Service Level Objectives (SLOs) with comprehens
 
 ```bash
 # Clone the repository
-git clone https://github.com/philyuchkoff/slozy.git
-cd slozy
+git clone https://github.com/philyuchkoff/slozy-oss.git
+cd slozy-oss
 
 # Build the application
 make build
@@ -71,8 +89,8 @@ make run
 
 ```bash
 # Clone the repository
-git clone https://github.com/philyuchkoff/slozy.git
-cd slozy
+git clone https://github.com/philyuchkoff/slozy-oss.git
+cd slozy-oss
 
 # Build for production
 make build-prod
