@@ -2,7 +2,7 @@ module github.com/philyuchkoff/slozy
 
 go 1.24.0
 
-toolchain go1.24.3
+toolchain go1.27.3
 
 require (
 	golang.org/x/text v0.34.0
