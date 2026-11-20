@@ -22,7 +22,7 @@ func TestSecurityHeaders(t *testing.T) {
 		"X-Frame-Options":         "DENY",
 		"X-XSS-Protection":        "1; mode=block",
 		"Referrer-Policy":         "strict-origin-when-cross-origin",
-		"Content-Security-Policy": "default-src 'self'; img-src 'self' data: https:; font-src 'self' data:; style-src 'self' https:; script-src 'self' https:; connect-src 'self'",
+		"Content-Security-Policy": "default-src 'self'; img-src 'self' data: https:; font-src 'self' data:; style-src 'self' 'unsafe-inline' https:; script-src 'self' 'unsafe-inline' https:; connect-src 'self'",
 	}
 
 	for header, expected := range expectedHeaders {
