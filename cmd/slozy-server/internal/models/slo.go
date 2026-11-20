@@ -28,7 +28,7 @@ type AlertingConfig struct {
 
 // BurnRateThreshold defines a burn rate alert threshold
 type BurnRateThreshold struct {
-	Rate      float64 `json:"rate"`      // 10.0 (10x быстрее)
+	Rate      float64 `json:"rate"`      // e.g. 10.0 (10x burn rate)
 	Period    string  `json:"period"`    // "1h", "6h"
 	Severity  string  `json:"severity"`  // "warning", "critical"
 	AlertName string  `json:"alertName"` // "HighBurnRate"

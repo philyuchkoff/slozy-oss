@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/philyuchkoff/slozy/cmd/slozy-server/internal/models"
+	"github.com/philyuchkoff/slozy-oss/cmd/slozy-server/internal/models"
 	"gopkg.in/yaml.v3"
 )
 
@@ -143,7 +143,7 @@ func (g *OpenSLOGenerator) buildAlertPolicies(slo models.SLO) []map[string]inter
 				"summary": fmt.Sprintf("High error budget burn rate for %s", slo.SLOName),
 				"description": fmt.Sprintf("%s is burning error budget %.1f times faster than allowed for %s",
 					slo.ServiceName, br.Rate, br.Period),
-				"dashboard": fmt.Sprintf("https://grafana.example.com/d/%s-%s", slo.ServiceName, slo.SLOName),
+				"dashboard": fmt.Sprintf("%s/d/%s-%s", grafanaBaseURL(), slo.ServiceName, slo.SLOName),
 			},
 		}
 		alertPolicies = append(alertPolicies, alertPolicy)

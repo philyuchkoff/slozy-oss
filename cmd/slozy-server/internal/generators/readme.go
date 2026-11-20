@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/philyuchkoff/slozy/cmd/slozy-server/internal/models"
+	"github.com/philyuchkoff/slozy-oss/cmd/slozy-server/internal/models"
 )
 
 // ReadmeGenerator generates README files for SLO configurations
@@ -131,7 +131,7 @@ func (g *ReadmeGenerator) writeErrorBudgetSection(readme *strings.Builder, slo m
 func (g *ReadmeGenerator) writeLinks(readme *strings.Builder) {
 	readme.WriteString("\n## Useful Links\n")
 	readme.WriteString("- [OpenSLO Specification](https://openslo.com)\n")
-	readme.WriteString("- [SLOzy GitHub](https://github.com/philyuchkoff/slozy)\n")
+	readme.WriteString("- [SLOzy GitHub](https://github.com/philyuchkoff/slozy-oss)\n")
 	readme.WriteString("- [Alertmanager Documentation](https://prometheus.io/docs/alerting/latest/configuration/)\n")
 	readme.WriteString("- [Telegram Bot API](https://core.telegram.org/bots/api)\n")
 }

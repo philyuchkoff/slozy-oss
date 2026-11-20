@@ -191,7 +191,7 @@ make install    # Install system-wide
 
 ## Support
 - 📖 Documentation: https://github.com/philyuchkoff/slozy
-- 🐛 Issues: https://github.com/philyuchkoff/slozy/issues
+- 🐛 Issues: https://github.com/philyuchkoff/slozy-oss/issues
 - 📧 Email: support@slozy.dev
 - 📜 License: MIT
 

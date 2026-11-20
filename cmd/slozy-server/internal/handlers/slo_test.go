@@ -9,7 +9,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/philyuchkoff/slozy/cmd/slozy-server/internal/models"
+	"github.com/philyuchkoff/slozy-oss/cmd/slozy-server/internal/models"
+	"github.com/philyuchkoff/slozy-oss/cmd/slozy-server/internal/safepath"
 )
 
 func TestSafeFilename(t *testing.T) {
@@ -18,8 +19,6 @@ func TestSafeFilename(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tempDir)
-
-	handler := &SLOHandler{}
 
 	tests := []struct {
 		serviceName string
@@ -37,9 +36,9 @@ func TestSafeFilename(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.serviceName, func(t *testing.T) {
-			result := handler.safeFilename(tt.serviceName, tt.sloName)
+			result := safepath.SanitizeFilename(tt.serviceName, tt.sloName)
 			if result != tt.expected {
-				t.Errorf("safeFilename: Expected %q, got %q", tt.expected, result)
+				t.Errorf("SanitizeFilename: Expected %q, got %q", tt.expected, result)
 			}
 		})
 	}

@@ -1,6 +1,6 @@
 [Unit]
 Description=SLOzy - SLO Management Service
-Documentation=https://github.com/philyuchkoff/slozy
+Documentation=https://github.com/philyuchkoff/slozy-oss
 After=network.target
 Wants=network.target
 

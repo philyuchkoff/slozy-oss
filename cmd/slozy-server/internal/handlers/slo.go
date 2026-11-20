@@ -5,17 +5,17 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/philyuchkoff/slozy/cmd/slozy-server/internal/generators"
+	"github.com/philyuchkoff/slozy-oss/cmd/slozy-server/internal/generators"
 	"golang.org/x/text/unicode/norm"
-	"github.com/philyuchkoff/slozy/cmd/slozy-server/internal/models"
-	"github.com/philyuchkoff/slozy/cmd/slozy-server/internal/middleware"
+	"github.com/philyuchkoff/slozy-oss/cmd/slozy-server/internal/logger"
+	"github.com/philyuchkoff/slozy-oss/cmd/slozy-server/internal/models"
+	"github.com/philyuchkoff/slozy-oss/cmd/slozy-server/internal/safepath"
 )
 
 // SLOHandler handles SLO creation and related operations
@@ -26,7 +26,6 @@ type SLOHandler struct {
 	alertmanagerGen   *generators.AlertmanagerGenerator
 	grafanaGen        *generators.GrafanaGenerator
 	readmeGen         *generators.ReadmeGenerator
-	tempDir           string
 	dataDir           string
 }
 
@@ -40,31 +39,30 @@ func NewSLOHandler(dataDir string) *SLOHandler {
 		grafanaGen:      generators.NewGrafanaGenerator(),
 		readmeGen:       generators.NewReadmeGenerator(),
 		dataDir:        dataDir,
-		tempDir:        dataDir + "/tmp",
 	}
 }
 
 // CreateSLO handles SLO creation requests
 func (h *SLOHandler) CreateSLO(w http.ResponseWriter, r *http.Request) {
-	log.Println("Received SLO creation request")
+	logger.Info("Received SLO creation request")
 
 	if r.Method != http.MethodPost {
-		log.Printf("Wrong method: %s", r.Method)
+		logger.Warn("Wrong method", "method", r.Method)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	var slo models.SLO
 	if err := json.NewDecoder(r.Body).Decode(&slo); err != nil {
-		log.Printf("JSON decode error: %v", err)
+		logger.Error("JSON decode error", "error", err)
 		respondWithError(w, fmt.Sprintf("Invalid JSON: %v", err), http.StatusBadRequest)
 		return
 	}
 
-	log.Printf("Parsed SLO data: Service: %s, SLO: %s", slo.ServiceName, slo.SLOName)
+	logger.Info("Parsed SLO data", "service", slo.ServiceName, "slo", slo.SLOName)
 
 	if validationErrors := h.validator.ValidateLegacy(slo); len(validationErrors) > 0 {
-		log.Printf("Validation failed: %v", validationErrors)
+		logger.Warn("Validation failed", "errors", validationErrors)
 		respondWithValidationErrors(w, validationErrors)
 		return
 	}
@@ -75,7 +73,7 @@ func (h *SLOHandler) CreateSLO(w http.ResponseWriter, r *http.Request) {
 	// Create temporary directory for files
 	tempDir, err := os.MkdirTemp("", "slozy-*")
 	if err != nil {
-		log.Printf("Failed to create temp directory: %v", err)
+		logger.Error("Failed to create temp directory", "error", err)
 		respondWithError(w, fmt.Sprintf("Failed to create temp directory: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -84,7 +82,7 @@ func (h *SLOHandler) CreateSLO(w http.ResponseWriter, r *http.Request) {
 	// Generate all files
 	zipData, filename, err := h.generateAndZip(tempDir, slo)
 	if err != nil {
-		log.Printf("Failed to generate files: %v", err)
+		logger.Error("Failed to generate files", "error", err)
 		respondWithError(w, fmt.Sprintf("Failed to generate files: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -95,15 +93,15 @@ func (h *SLOHandler) CreateSLO(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Expose-Headers", "Content-Disposition")
 
 	if _, err := w.Write(zipData); err != nil {
-		log.Printf("Failed to send ZIP archive: %v", err)
+		logger.Error("Failed to send ZIP archive", "error", err)
 	}
 
-	log.Printf("ZIP archive sent successfully: %s (%d bytes)", filename, len(zipData))
+	logger.Info("ZIP archive sent successfully", "filename", filename, "bytes", len(zipData))
 }
 
 // generateAndZip generates all files and creates ZIP archive
 func (h *SLOHandler) generateAndZip(tempDir string, slo models.SLO) ([]byte, string, error) {
-	baseFilename := h.safeFilename(slo.ServiceName, slo.SLOName)
+	baseFilename := safepath.SanitizeFilename(slo.ServiceName, slo.SLOName)
 
 	// Generate main SLO YAML
 	yamlContent, err := h.openSLOGen.Generate(slo)
@@ -205,64 +203,6 @@ func (h *SLOHandler) applyDefaults(slo *models.SLO) {
 	}
 }
 
-// safeFilename creates a safe filename from service and SLO names
-func (h *SLOHandler) safeFilename(serviceName, sloName string) string {
-	// Normalize Unicode characters
-	normService := norm.NFC.String(serviceName)
-	normSLO := norm.NFC.String(sloName)
-
-	// Clean paths to remove any directory traversal attempts
-	cleanService := filepath.Clean(normService)
-	cleanSLO := filepath.Clean(normSLO)
-
-	// Get just the base filename (remove any path components)
-	baseService := filepath.Base(cleanService)
-	baseSLO := filepath.Base(cleanSLO)
-
-	// Windows reserved filenames
-	reserved := map[string]bool{
-		"CON": true, "PRN": true, "AUX": true, "NUL": true,
-		"COM1": true, "COM2": true, "COM3": true, "COM4": true,
-		"COM5": true, "COM6": true, "COM7": true, "COM8": true,
-		"COM9": true, "LPT1": true, "LPT2": true, "LPT3": true,
-		"LPT4": true, "LPT5": true, "LPT6": true, "LPT7": true,
-		"LPT8": true, "LPT9": true,
-	}
-
-	// If the filename matches a reserved name, prefix with underscore
-	if reserved[strings.ToUpper(baseService)] {
-		baseService = "_" + baseService
-	}
-	if reserved[strings.ToUpper(baseSLO)] {
-		baseSLO = "_" + baseSLO
-	}
-
-		// Allowed characters
-	safeFunc := func(r rune) rune {
-		// Remove null bytes
-		if r == 0 {
-			return -1
-		}
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' || r == '.' {
-			return r
-		}
-		return '_'
-	}
-
-	safeService := strings.Map(safeFunc, baseService)
-	safeSLO := strings.Map(safeFunc, baseSLO)
-
-	// Apply length limits (max 100 chars each, plus dash and extension)
-	if len(safeService) > 100 {
-		safeService = safeService[:100]
-	}
-	if len(safeSLO) > 100 {
-		safeSLO = safeSLO[:100]
-	}
-
-	return fmt.Sprintf("%s-%s", safeService, safeSLO)
-}
-
 // createZipArchive creates ZIP archive from file map
 func (h *SLOHandler) createZipArchive(files map[string][]byte) ([]byte, error) {
 	var buf bytes.Buffer
@@ -332,7 +272,7 @@ func respondWithValidationErrors(w http.ResponseWriter, errors []string) {
 
 // ListSLOs handles listing existing SLOs
 func (h *SLOHandler) ListSLOs(w http.ResponseWriter, r *http.Request) {
-	log.Println("Listing SLOs")
+	logger.Info("Listing SLOs")
 
 	files, err := os.ReadDir(h.dataDir)
 	if err != nil {
@@ -341,7 +281,7 @@ func (h *SLOHandler) ListSLOs(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(map[string]interface{}{"slos": []string{}})
 			return
 		}
-		log.Printf("Directory read error: %v", err)
+		logger.Error("Directory read error", "error", err)
 		respondWithError(w, fmt.Sprintf("Failed to read directory: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -359,9 +299,4 @@ func (h *SLOHandler) ListSLOs(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"slos": slos})
-}
-
-// Wrap creates middleware wrapper
-func (h *SLOHandler) Wrap(next http.HandlerFunc) http.HandlerFunc {
-	return middleware.LoggingMiddleware(next)
 }

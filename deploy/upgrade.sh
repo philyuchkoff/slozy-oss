@@ -99,7 +99,7 @@ if [[ -d "slozy-source" ]]; then
 fi
 
 if [[ ! -f "Makefile" ]]; then
-    git clone https://github.com/philyuchkoff/slozy.git slozy-source
+    git clone https://github.com/philyuchkoff/slozy-oss.git slozy-source
     cd slozy-source
 fi
 

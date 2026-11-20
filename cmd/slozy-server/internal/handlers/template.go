@@ -3,14 +3,14 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/philyuchkoff/slozy/cmd/slozy-server/internal/models"
-	"github.com/philyuchkoff/slozy/cmd/slozy-server/internal/middleware"
+	"github.com/philyuchkoff/slozy-oss/cmd/slozy-server/internal/logger"
+	"github.com/philyuchkoff/slozy-oss/cmd/slozy-server/internal/models"
+	"github.com/philyuchkoff/slozy-oss/cmd/slozy-server/internal/safepath"
 	"gopkg.in/yaml.v3"
 )
 
@@ -30,7 +30,7 @@ func NewTemplateHandler(templatesDir string) *TemplateHandler {
 func (h *TemplateHandler) GetTemplates(w http.ResponseWriter, r *http.Request) {
 	templates, err := h.loadTemplates()
 	if err != nil {
-		log.Printf("Warning: Failed to load templates from files, using defaults: %v", err)
+		logger.Warn("Failed to load templates from files, using defaults", "error", err)
 		templates = h.getDefaultTemplates()
 	}
 
@@ -64,12 +64,12 @@ func (h *TemplateHandler) CreateDefaultTemplates(w http.ResponseWriter, r *http.
 
 // loadTemplates loads templates from files
 func (h *TemplateHandler) loadTemplates() ([]map[string]interface{}, error) {
-	if err := os.MkdirAll(h.templatesDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create templates directory: %w", err)
-	}
-
 	files, err := os.ReadDir(h.templatesDir)
 	if err != nil {
+		if os.IsNotExist(err) {
+			// Templates directory doesn't exist yet — return defaults
+			return h.getDefaultTemplates(), nil
+		}
 		return nil, fmt.Errorf("failed to read templates directory: %w", err)
 	}
 
@@ -79,7 +79,7 @@ func (h *TemplateHandler) loadTemplates() ([]map[string]interface{}, error) {
 		if !file.IsDir() && strings.HasSuffix(file.Name(), ".yaml") {
 			template, err := h.loadTemplateFile(filepath.Join(h.templatesDir, file.Name()))
 			if err != nil {
-				log.Printf("Warning: Failed to load template file %s: %v", file.Name(), err)
+				logger.Warn("Failed to load template file", "file", file.Name(), "error", err)
 				continue
 			}
 			if template != nil {
@@ -97,25 +97,18 @@ func (h *TemplateHandler) loadTemplates() ([]map[string]interface{}, error) {
 
 // loadTemplateFile loads a single template file
 func (h *TemplateHandler) loadTemplateFile(filePath string) (map[string]interface{}, error) {
-	// Validate path is within templates directory
-	cleanPath := filepath.Clean(filePath)
-	resolvedPath, err := filepath.EvalSymlinks(h.templatesDir)
+	// Validate that path is within templates directory
+	resolvedPath, err := safepath.ValidateInDir(h.templatesDir, filePath)
 	if err != nil {
-		// If we can't resolve symlinks, continue with cleaned path
-		resolvedPath = filepath.Clean(h.templatesDir)
-	}
-
-	// Check if the file path is within the templates directory
-	if !strings.HasPrefix(cleanPath, resolvedPath) {
-		return nil, fmt.Errorf("attempted to access file outside templates directory: %s", filePath)
+		return nil, err
 	}
 
 	// Ensure the file has .yaml extension
-	if !strings.HasSuffix(cleanPath, ".yaml") {
+	if !safepath.HasYAMLExtension(filePath) {
 		return nil, fmt.Errorf("only .yaml files are allowed")
 	}
 
-	content, err := os.ReadFile(filePath)
+	content, err := os.ReadFile(resolvedPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read template file: %w", err)
 	}
@@ -290,7 +283,7 @@ func (h *TemplateHandler) copyExampleTemplates() error {
 		if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
 			return fmt.Errorf("failed to create template file %s: %w", filename, err)
 		}
-		log.Printf("Created template file: %s", filename)
+		logger.Info("Created template file", "file", filename)
 	}
 
 	return nil
@@ -347,9 +340,4 @@ alerting:
       severity: critical
       alertName: CriticalBurnRate`,
 	}
-}
-
-// Wrap creates middleware wrapper
-func (h *TemplateHandler) Wrap(next http.HandlerFunc) http.HandlerFunc {
-	return middleware.LoggingMiddleware(next)
 }

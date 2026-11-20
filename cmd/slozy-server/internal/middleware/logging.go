@@ -1,9 +1,10 @@
 package middleware
 
 import (
-	"log"
 	"net/http"
 	"time"
+
+	"github.com/philyuchkoff/slozy-oss/cmd/slozy-server/internal/logger"
 )
 
 // responseWriter is a wrapper around http.ResponseWriter that captures status code
@@ -22,13 +23,17 @@ func (rw *responseWriter) WriteHeader(code int) {
 func LoggingMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		log.Printf("[%s] %s %s", r.Method, r.URL.Path, r.RemoteAddr)
+		logger.Info("Request", "method", r.Method, "path", r.URL.Path, "remote", r.RemoteAddr)
 
 		rw := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
 		next(rw, r)
 
-		log.Printf("[%s] %s %s - %d %s",
-			r.Method, r.URL.Path, r.RemoteAddr,
-			rw.statusCode, time.Since(start))
+		logger.Info("Response",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"remote", r.RemoteAddr,
+			"status", rw.statusCode,
+			"duration", time.Since(start).String(),
+		)
 	}
 }

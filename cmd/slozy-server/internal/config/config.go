@@ -4,7 +4,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/philyuchkoff/slozy/cmd/slozy-server/internal/models"
+	"github.com/philyuchkoff/slozy-oss/cmd/slozy-server/internal/models"
 )
 
 // LoadConfig loads configuration from environment variables and defaults

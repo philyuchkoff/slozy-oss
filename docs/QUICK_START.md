@@ -5,7 +5,7 @@ This guide gets you running SLOzy in production in under 10 minutes.
 ## 🚀 One-Command Installation
 
 ```bash
-curl -sfL https://raw.githubusercontent.com/philyuchkoff/slozy/main/deploy/install.sh | sudo bash -s -- --install-dir /opt/slozy --port 8080
+curl -sfL https://raw.githubusercontent.com/philyuchkoff/slozy-oss/main/deploy/install.sh | sudo bash -s -- --install-dir /opt/slozy --port 8080
 ```
 
 ## 📋 Manual Quick Start
@@ -25,7 +25,7 @@ ss -tulpn | grep 8080 || echo "Port 8080 is available"
 
 ```bash
 # Clone repository
-git clone https://github.com/philyuchkoff/slozy.git
+git clone https://github.com/philyuchkoff/slozy-oss.git
 cd /tmp/slozy
 
 # Install Go if not present (Ubuntu/Debian)

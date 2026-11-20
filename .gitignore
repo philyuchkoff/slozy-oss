@@ -1,16 +1,9 @@
 # project
-AUDIT.md
-PLAN.md
-ARCHITECTURE_DRAFT.md
+# Intentionally empty - project-specific ignores
 
 # Binaries
 bin/
 dist/
-
-# Deploy artifacts (generated locally)
-deploy/
-deploy.tar.gz
-deploy-*.tar.gz
 
 # Build artifacts
 *.test

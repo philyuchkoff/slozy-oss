@@ -2,10 +2,9 @@ package generators
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
-	"github.com/philyuchkoff/slozy/cmd/slozy-server/internal/models"
+	"github.com/philyuchkoff/slozy-oss/cmd/slozy-server/internal/models"
 	"gopkg.in/yaml.v3"
 )
 
@@ -89,7 +88,7 @@ func (g *PrometheusGenerator) buildAlertRule(slo models.SLO, br models.BurnRateT
 		"annotations": map[string]string{
 			"summary":     fmt.Sprintf("High error budget burn rate for %s/%s", slo.ServiceName, slo.SLOName),
 			"description": fmt.Sprintf("{{ $labels.service }} {{ $labels.slo }} is burning error budget {{ $labels.burn_rate_threshold }} faster than allowed.\nCurrent burn rate: {{ $value }}x\nSLO Target: {{ $labels.slo_target }}%%\nFor: %s", br.Period),
-			"dashboard":   fmt.Sprintf("https://grafana.example.com/d/%s-%s", slo.ServiceName, slo.SLOName),
+			"dashboard":   fmt.Sprintf("%s/d/%s-%s", grafanaBaseURL(), slo.ServiceName, slo.SLOName),
 		},
 	}
 }
@@ -145,17 +144,12 @@ func (g *PrometheusGenerator) buildExpression(slo models.SLO, targetValue string
 	}
 }
 
-// sanitizeQuery sanitizes a Prometheus metric query for safe inclusion in expressions
+// sanitizeQuery prepares a Prometheus metric query for safe inclusion in expressions.
+// Validation is handled by models.Validator — this only applies formatting.
 func (g *PrometheusGenerator) sanitizeQuery(query string) string {
-	// Remove any potentially dangerous characters that weren't caught by validation
-	// This is a defense-in-depth measure
-	dangerousChars := regexp.MustCompile(`[;&|` + "`" + `]`)
-	sanitized := dangerousChars.ReplaceAllString(query, "")
-
 	// Ensure query is properly quoted if it contains spaces
-	if strings.Contains(sanitized, " ") && !strings.HasPrefix(sanitized, `"`) {
-		sanitized = `"` + sanitized + `"`
+	if strings.Contains(query, " ") && !strings.HasPrefix(query, `"`) {
+		query = `"` + query + `"`
 	}
-
-	return sanitized
+	return query
 }

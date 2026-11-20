@@ -1,4 +1,4 @@
-module github.com/philyuchkoff/slozy
+module github.com/philyuchkoff/slozy-oss
 
 go 1.24.0
 

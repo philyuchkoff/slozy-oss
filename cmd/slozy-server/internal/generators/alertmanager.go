@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/philyuchkoff/slozy/cmd/slozy-server/internal/models"
+	"github.com/philyuchkoff/slozy-oss/cmd/slozy-server/internal/models"
 	"gopkg.in/yaml.v3"
 )
 
@@ -184,7 +184,7 @@ func (g *AlertmanagerGenerator) buildSlackConfigs(channels []string) []map[strin
 					"channel":  "#" + channelName,
 					"title":    "{{ .GroupLabels.service }} SLO Alert",
 					"text":     "{{ range .Alerts }}{{ .Annotations.description }}\n{{ end }}",
-					"icon_url": "https://raw.githubusercontent.com/philyuchkoff/slozy/main/static/favicon.ico",
+					"icon_url": "https://raw.githubusercontent.com/philyuchkoff/slozy-oss/main/static/favicon.ico",
 				}
 			} else {
 				slackConfig = map[string]interface{}{
@@ -192,7 +192,7 @@ func (g *AlertmanagerGenerator) buildSlackConfigs(channels []string) []map[strin
 					"channel":  "#slo-alerts",
 					"title":    "{{ .GroupLabels.service }} SLO Alert",
 					"text":     "{{ range .Alerts }}{{ .Annotations.description }}\n{{ end }}",
-					"icon_url": "https://raw.githubusercontent.com/philyuchkoff/slozy/main/static/favicon.ico",
+					"icon_url": "https://raw.githubusercontent.com/philyuchkoff/slozy-oss/main/static/favicon.ico",
 				}
 			}
 			slackConfigs = append(slackConfigs, slackConfig)

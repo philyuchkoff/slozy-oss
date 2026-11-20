@@ -43,22 +43,7 @@ func RateLimitMiddleware(config *RateLimitConfig) func(http.HandlerFunc) http.Ha
 	// Map of IP to rate limiter
 	clients := make(map[string]*RateLimiter)
 	var mu sync.Mutex
-
-	// Cleanup goroutine
-	go func() {
-		ticker := time.NewTicker(config.CleanupInterval)
-		defer ticker.Stop()
-
-		for range ticker.C {
-			mu.Lock()
-			for ip, client := range clients {
-				if time.Since(client.lastSeen) > 5*time.Minute {
-					delete(clients, ip)
-				}
-			}
-			mu.Unlock()
-		}
-	}()
+	var lastCleanup time.Time
 
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
@@ -67,6 +52,17 @@ func RateLimitMiddleware(config *RateLimitConfig) func(http.HandlerFunc) http.Ha
 
 			// Create or get rate limiter for this IP
 			mu.Lock()
+
+			// Periodic cleanup (no dedicated goroutine)
+			if time.Since(lastCleanup) > config.CleanupInterval {
+				for ip, client := range clients {
+					if time.Since(client.lastSeen) > 5*time.Minute {
+						delete(clients, ip)
+					}
+				}
+				lastCleanup = time.Now()
+			}
+
 			if _, exists := clients[ip]; !exists {
 				clients[ip] = &RateLimiter{
 					limiter: rate.NewLimiter(rate.Limit(config.BurstSizeBPS), config.BurstSizeMAX),

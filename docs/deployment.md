@@ -74,7 +74,7 @@ The automated script handles all installation steps:
 
 ```bash
 # Clone the repository
-git clone https://github.com/philyuchkoff/slozy.git
+git clone https://github.com/philyuchkoff/slozy-oss.git
 cd slozy
 
 # Run the installation script
@@ -111,7 +111,7 @@ sudo chown -R slozy:slozy /opt/slozy
 
 ```bash
 # Clone and build
-git clone https://github.com/philyuchkoff/slozy.git
+git clone https://github.com/philyuchkoff/slozy-oss.git
 cd slozy
 
 # Build for production
@@ -601,9 +601,9 @@ Before going live with SLOzy:
 For additional help:
 
 1. Check the [troubleshooting section](#troubleshooting)
-2. Review [GitHub Issues](https://github.com/philyuchkoff/slozy/issues)
+2. Review [GitHub Issues](https://github.com/philyuchkoff/slozy-oss/issues)
 3. Check application logs: `sudo journalctl -u slozy -f`
-4. Visit the [documentation](https://github.com/philyuchkoff/slozy/tree/main/docs)
+4. Visit the [documentation](https://github.com/philyuchkoff/slozy-oss/tree/main/docs)
 
 ---
 

@@ -6,7 +6,7 @@ import (
 	"math"
 	"strings"
 
-	"github.com/philyuchkoff/slozy/cmd/slozy-server/internal/models"
+	"github.com/philyuchkoff/slozy-oss/cmd/slozy-server/internal/models"
 )
 
 // GrafanaGenerator generates Grafana dashboard configurations

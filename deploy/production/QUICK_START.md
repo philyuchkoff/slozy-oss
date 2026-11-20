@@ -6,7 +6,7 @@
 
 ```bash
 # 1. Clone and navigate
-git clone https://github.com/philyuchkoff/slozy.git
+git clone https://github.com/philyuchkoff/slozy-oss.git
 cd slozy/deploy/production
 
 # 2. Configure environment
