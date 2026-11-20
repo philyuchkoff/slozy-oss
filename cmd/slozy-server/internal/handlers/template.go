@@ -77,7 +77,7 @@ func (h *TemplateHandler) loadTemplates() ([]map[string]interface{}, error) {
 
 	for _, file := range files {
 		if !file.IsDir() && strings.HasSuffix(file.Name(), ".yaml") {
-			template, err := h.loadTemplateFile(filepath.Join(h.templatesDir, file.Name()))
+			template, err := h.loadTemplateFile(file.Name())
 			if err != nil {
 				logger.Warn("Failed to load template file", "file", file.Name(), "error", err)
 				continue
